@@ -1,8 +1,8 @@
 from flask import Flask, request, redirect
 import logging, colorlog
 import sys
+from .env import *
 
-TO_STDOUT = True
 
 handler = colorlog.StreamHandler()
 

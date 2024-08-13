@@ -2,3 +2,9 @@
 logs
 .vscode
 **/target
+**/*.pyc
+**/__pycache__
+__pycache__/
+*.py[cod]
+*$py.class
+server/__pycache__/*.pyc
