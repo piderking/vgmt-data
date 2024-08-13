@@ -1,0 +1,11 @@
+[package]
+name = "oauth"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.86"
+log = "0.4.22"
+oauth2 = "4.4.2"
+reqwest = "0.12.5"
+tokio = { version = "1.39.2", features = ["full"] }
