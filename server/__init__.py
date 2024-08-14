@@ -2,6 +2,7 @@ from flask import Flask, request, redirect
 import logging, colorlog
 import sys
 from .env import *
+import requests
 
 
 handler = colorlog.StreamHandler()
@@ -41,6 +42,24 @@ def dexcom():
     if request.args.get("code") is not None and request.args.get("state") is not None:
         logger.info("Auth Token: {}".format(str(request.args.get("code"))))
         holder[request.args.get("state")] = request.args.get("code")
-        return request.args.get("code") + " | " + request.args.get("state")
+
+        url = "https://sandbox-api.dexcom.com/v2/oauth2/token"
+
+        payload = {
+        "grant_type": "authorization_code",
+        "code": "533d33c28705a6c8f06c2a3fde87da30",
+        "redirect_uri": "http://172.28.244.153:3321/dexcom",
+        "client_id": "buW1km1Ig6BfWwh0S0S5phKWhmQSse8t",
+        "client_secret": "NVFP7f9QiBkFKriT"
+        }
+
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        response = requests.post(url, data=payload, headers=headers)
+
+        data = response.json()
+        print(data)
+        # return request.args.get("code") + " | " + request.args.get("state")
+        return "Valid"
     else:
         return "Invalid"

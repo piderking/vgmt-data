@@ -14,16 +14,19 @@ pub mod worker {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
 
-    trait URL {
+    pub trait Endpoint {
         fn get_url(self: &Self) -> String;
     }
-    trait Endpoint {
+    pub trait OAuthClient {
         fn get_val(self: &Self) -> String;
     }
+
     pub enum DexcomMode {
         Sandbox,
         Production,
     }
+
+
     pub enum DexcomClient {
         ClientId,
         ClientSecret,
@@ -32,7 +35,7 @@ pub mod worker {
         RedirectUrl,
     }
 
-    impl URL for DexcomMode {
+    impl Endpoint for DexcomMode {
         fn get_url(self: &Self) -> String {
             match self {
                 DexcomMode::Sandbox => "https://sandbox-api.dexcom.com",
@@ -42,7 +45,7 @@ pub mod worker {
         }
     }
 
-    impl Endpoint for DexcomClient {
+    impl OAuthClient for DexcomClient {
         fn get_val(self: &Self) -> String {
             match self {
                 DexcomClient::ClientId => "buW1km1Ig6BfWwh0S0S5phKWhmQSse8t",
@@ -55,9 +58,10 @@ pub mod worker {
         }
     }
 
-    pub async fn get_auth<T>(mode: &T) -> ()
+    pub async fn get_auth<T, A>(mode: &T, client: &A) -> ()
     where
-        T: URL,
+        T: Endpoint,
+        A: OAuthClient
     {
         // Create an OAuth2 client by specifying the client ID, client secret, authorization URL and
         // token URL.
@@ -94,6 +98,7 @@ pub mod worker {
 
         // This is the URL you should redirect the user to, in order to trigger the authorization
         // process.
-        println!("{}&token={}", auth_url, "".to_string());
+        println!("{}", auth_url);
+
     }
 }

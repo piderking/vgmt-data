@@ -45,7 +45,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // This is the URL you should redirect the user to, in order to trigger the authorization
     // process.
     println!("{}&token={}", auth_url, "".to_string());
-
+    /*
+    
     dbg!(csrf_token.secret());
     for x in 1..100 {
         let body = reqwest::get(format!(
@@ -64,7 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("No match yet.");
 
         ()
-    }
+    } */
 
     Ok(())
 
