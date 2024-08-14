@@ -6,7 +6,7 @@ token_url = "/v2/oauth2/token"
 sandbox = false
 sandbox_url="https://sandbox-api.dexcom.com"
 production_url="https://api.dexcom.com"
-
+sandbox=false
 [oauth]
 redirect_url = "/"
 

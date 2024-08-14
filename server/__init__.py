@@ -36,8 +36,12 @@ def state():
             return holder[state]
         
     return "Invalid"
+
+@app.route("/valid")
+def valid_endpoints():
+    pass
         
-@app.route("/dexcom")
+@app.route("/endpoints/dexcom")
 def dexcom():
     if request.args.get("code") is not None and request.args.get("state") is not None:
         logger.info("Auth Token: {}".format(str(request.args.get("code"))))
