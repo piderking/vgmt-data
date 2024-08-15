@@ -9,7 +9,7 @@ users = {
 }
 
 class Client:
-    def __init__(self, name, users = []):
+    def __init__(self, name, state_users = []):
         self.name = name
                 
         if ftoml.get(self.name) is None: raise toml.TomlDecodeError("Client not found in toml.")
@@ -20,22 +20,63 @@ class Client:
         self.endpoints = {
             "token": ftoml[self.name]["token_url"],
             "auth": ftoml[self.name]["auth_url"],
+            "userID": {
+                "url": ftoml[self.name]["user_id_url"],
+                "key": ftoml[self.name]["user_id_key"]
+            }
         }
         self.base_url = ftoml[self.name]["sandbox_url"] if self.sandbox else ftoml[self.name]["production_url"]
-        self.redirect_url = "/endpoints/dexcom"
+        self.redirect_url = "/endpoints/" + self.name
         
-        self._users = users
-    
+        self._state_users = state_users
+
     def set_url(self, url: str):
         self.base_url = url
     def set_sandbox(self, _new: bool):
         self.sandbox = _new
         self.set_url(ftoml[self.name]["sandbox_url"] if _new else ftoml[self.name]["production_url"])
 
-    def _post(self, authorization_code: str, state: str,  base_url: str, grant_type: str = "authorization_code"):
-        logger.info("Auth Code: {}, State: {}, Base Url: {}".format(authorization_code, state, base_url))
+    
+    def _post(self, endpoint: str, addHeaders: dict[str, str] = {}, payload: dict = {}) -> dict:
+        url = self.base_url +  endpoint
+    
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        url = self.base_url +  self.endpoints["token"]
+        return self._handle_response(requests.post(url, data=payload, headers=dict(headers | addHeaders)))
+        
+    def _handle_response(self, response: Response) -> dict:
+        try:
+
+            if response.status_code == 200:
+                print(response)
+                return response.json()
+            else:
+                return {
+                    "message": "Session invalid with dexcom, refresh... If not during debugging contact",
+                    "recieved_code": response.status_code,
+                    "recieved_text": response.text
+                }, 500
+                
+        except Exception as e:
+            logger.exception(e())
+            return {
+                    "message": "Session invalid with dexcom, refresh... If not during debugging contact",
+                    "error": str(e())
+            }, 500
+    def _transform_user(self, state: str) -> dict:
+        for user in self._state_users:
+            if user["state"] == state:
+                # Will add the usernID to dict of all users
+                res = self._post(endpoint=self.endpoints["userID"]["url"], addHeaders= {"Authorization": "Bearer {}".format(user["access_token"])})
+                        
+                if users.get(res["userId"]) is None:
+                    users[res["userId"]] = {}
+                users[res["userId"]][self.name] = self.get_user(state)
+                return users[res["userId"]][self.name]
+    def _fetch_token(self, authorization_code: str, state: str,  base_url: str, grant_type: str = "authorization_code"):
+        logger.info("Fetching Acess Token with Params: Auth Code: {}, State: {}, Redirect Url: {}".format(authorization_code, state, base_url))
+
+        #url = self.base_url +  self.endpoints["token"]
 
         payload = {
         "grant_type":grant_type,
@@ -45,42 +86,22 @@ class Client:
         "client_secret": self.clientSecret
         }
 
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        response = requests.post(url, data=payload, headers=headers)
 
-        #try:
-        print(response.text)
-        if response.status_code == 200:
-
-            return self._handle_response(response.json(), state)
-        else:
-            return {
-                "message": "Session invalid with dexcom, refresh... If not during debugging contact"
-            }, 500
-        """
-        
-        except Exception as e:
-            logger.error("".format(e))
-            return {
-                "status":404,
-                "message":"Error {}".format(str(type(e)))
-            }, 402
-        
-        """
+        return self._post(self.endpoints["token"], payload=payload)
+     
 
         
-    def _handle_response(self, data: dict, state: str) -> dict:
+    def _handle_code_response(self, data: dict, state: str) -> dict:
         data["state"] = state
-        self._users.append(data)
-        if users.get(state) is None:
-            users[state] = {}
-        users[state][self.name] = data
+        self._state_users.append(data)
+        
+
         return data
 
-    def get_user(self, state: str, remove: bool = False) -> dict | Response:
-        for user in self._users:
+    def get_user(self, state: str, remove: bool = True) -> dict | Response:
+        for user in self._state_users:
             if user["state"] == state:
-                if remove: self._users.remove(user)
+                if remove: self._state_users.remove(user)
                 return user
             
         logger.debug("No found value for {}".format(state))

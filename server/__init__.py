@@ -41,7 +41,7 @@ def endpoints(endpoint):
     for client in holder.clients:
         if client.name == endpoint:
             if request.args.get("code") is not None and request.args.get("state") is not None:
-                return client._post(request.args.get("code"), request.args.get("state"), request.base_url, )
+                return client._fetch_token(request.args.get("code"), request.args.get("state"), request.base_url, )
             else:
                 return Response({
                     "status": "402",
@@ -69,6 +69,7 @@ def endpoint_users(endpoint):
             "status": "404",
             "message": "Requested enpoint ({}) is not found".format(endpoint)
         },  status=401)
+    
 @app.route("/endpoints/<endpoint>/user/<state>")
 def endpoint_get_user(endpoint, state):
     logger.debug("{} Endpoint Used".format(endpoint))
@@ -80,7 +81,7 @@ def endpoint_get_user(endpoint, state):
         },  401
     for client in holder.clients:
         if client.name == endpoint:
-            return client.get_user(state)
+            return client.get_user(state, remove=False)
                 
         # return request.args.get("code") + " | " + request.args.get("state")
     return {
@@ -90,10 +91,6 @@ def endpoint_get_user(endpoint, state):
 
 @app.route("/users")
 def all_current_users():
-    by = request.args.get("by")
-    
-    if by == "endpoint":
-        return {client.name: client._users for client in holder.clients}
     return users
     
 @app.route("/save")
