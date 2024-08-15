@@ -1,24 +1,12 @@
-from flask import Flask, request, redirect
+from flask import Flask, request, redirect, Response
+
+from .env import *
 import logging, colorlog
 import sys
-from .env import *
-import requests
-
-
-handler = colorlog.StreamHandler()
-
-logger = colorlog.getLogger(__name__)
-logger.addHandler(handler)
-
-
-handler.setFormatter(colorlog.ColoredFormatter(
-	'%(log_color)s%(levelname)s:%(name)s:%(message)s'))
-
-if not TO_STDOUT: logging.basicConfig(filename='logs/server.log', level=logging.INFO)
-else: logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-
+from .worker import ClientAPI, users
 app = Flask(__name__)
-holder = {}
+holder = ClientAPI.from_toml(app)
+
 @app.route("/")
 def index():
     return redirect("/docs")
@@ -41,29 +29,76 @@ def state():
 def valid_endpoints():
     pass
         
-@app.route("/endpoints/dexcom")
-def dexcom():
-    if request.args.get("code") is not None and request.args.get("state") is not None:
-        logger.info("Auth Token: {}".format(str(request.args.get("code"))))
-        holder[request.args.get("state")] = request.args.get("code")
-
-        url = "https://sandbox-api.dexcom.com/v2/oauth2/token"
-
-        payload = {
-        "grant_type": "authorization_code",
-        "code": "533d33c28705a6c8f06c2a3fde87da30",
-        "redirect_uri": "http://172.28.244.153:3321/dexcom",
-        "client_id": "buW1km1Ig6BfWwh0S0S5phKWhmQSse8t",
-        "client_secret": "NVFP7f9QiBkFKriT"
-        }
-
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
-
-        response = requests.post(url, data=payload, headers=headers)
-
-        data = response.json()
-        print(data)
+@app.route("/endpoints/<endpoint>")
+def endpoints(endpoint):
+    logger.debug("{} Endpoint Used".format(endpoint))
+    
+    if endpoint is None or endpoint is "":
+        return Response({
+            "status": "401",
+            "message": "Endpoint is None"
+        },  status=401)
+    for client in holder.clients:
+        if client.name == endpoint:
+            if request.args.get("code") is not None and request.args.get("state") is not None:
+                return client._post(request.args.get("code"), request.args.get("state"), request.base_url, )
+            else:
+                return Response({
+                    "status": "402",
+                    "message": "Either state or code arguement is none, no bueno! Is None? -> State: {}, Code: {}".format(request.args.get("code") is None, request.args.get("state") is None)
+                },  status=401)
         # return request.args.get("code") + " | " + request.args.get("state")
-        return "Valid"
-    else:
-        return "Invalid"
+    return Response({
+            "status": "404",
+            "message": "Requested enpoint ({}) is not found".format(endpoint)
+        },  status=401)
+@app.route("/endpoints/<endpoint>/users")
+def endpoint_users(endpoint):
+    logger.debug("{} Endpoint Used".format(endpoint))
+    
+    if endpoint is None or endpoint is "":
+        return Response({
+            "status": "401",
+            "message": "Endpoint is None"
+        },  status=401)
+    for client in holder.clients:
+        if client.name == endpoint:
+            return client._users
+        # return request.args.get("code") + " | " + request.args.get("state")
+    return Response({
+            "status": "404",
+            "message": "Requested enpoint ({}) is not found".format(endpoint)
+        },  status=401)
+@app.route("/endpoints/<endpoint>/user/<state>")
+def endpoint_get_user(endpoint, state):
+    logger.debug("{} Endpoint Used".format(endpoint))
+    
+    if endpoint is None or endpoint is "":
+        return {
+            "status": "401",
+            "message": "Endpoint is None"
+        },  401
+    for client in holder.clients:
+        if client.name == endpoint:
+            return client.get_user(state)
+                
+        # return request.args.get("code") + " | " + request.args.get("state")
+    return {
+            "status": "404",
+            "message": "Requested enpoint ({}) is not found".format(endpoint)
+        }, 401
+
+@app.route("/users")
+def all_current_users():
+    by = request.args.get("by")
+    
+    if by == "endpoint":
+        return {client.name: client._users for client in holder.clients}
+    return users
+    
+@app.route("/save")
+def save():
+    default = "data.json"
+    if request.args.get("filename") is not None:
+        default = request.args.get("filename")
+    

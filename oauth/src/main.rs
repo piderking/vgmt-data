@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     // Set the URL the user will be redirected to after the authorization process.
     .set_redirect_uri(RedirectUrl::new(
-        "http://172.28.244.153:3321/dexcom".to_string(),
+        "http://172.28.244.153:3321/endpoints/dexcom".to_string(),
     )?);
 
     // Generate a PKCE challenge.

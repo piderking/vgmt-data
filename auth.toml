@@ -3,10 +3,10 @@ client_id = "buW1km1Ig6BfWwh0S0S5phKWhmQSse8t"
 client_secret = "NVFP7f9QiBkFKriT"
 auth_url = "/v2/oauth2/login"
 token_url = "/v2/oauth2/token"
-sandbox = false
+sandbox = true
 sandbox_url="https://sandbox-api.dexcom.com"
 production_url="https://api.dexcom.com"
-sandbox=false
+
 [oauth]
 redirect_url = "/"
 
