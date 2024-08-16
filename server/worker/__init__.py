@@ -63,7 +63,7 @@ class Client:
                 return response.json()
             else:
                 return {
-                    "message": "Session invalid with dexcom, refresh... If not during debugging contact",
+                    "message": "Session invalid with {}, refresh... If not during debugging contact".format(self.name),
                     "recieved_code": response.status_code,
                     "recieved_text": response.text
                 }, 500
@@ -71,7 +71,7 @@ class Client:
         except Exception as e:
             logger.exception(e())
             return {
-                    "message": "Session invalid with dexcom, refresh... If not during debugging contact",
+                    "message": "Session invalid with {}, refresh... If not during debugging contact".format(self.name),
                     "error": str(e())
             }, 500
     def _transform_user(self, state: str, uid: str) -> dict:
