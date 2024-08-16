@@ -1,12 +1,14 @@
-import toml, requests
+import toml, requests, json, os
 from flask import url_for, Flask, request, Response
-from ..env import logger, TOML_FILE_PATH
+from ..env import logger, TOML_FILE_PATH, USERS_FILE_PATH
+from ..data import UserManager
 
 ftoml = toml.loads(open(TOML_FILE_PATH).read())
 
-users = {
-    
-}
+users: UserManager = UserManager.from_dict(
+    json.loads(open(USERS_FILE_PATH, "r").read())
+) if os.path.exists(USERS_FILE_PATH) else UserManager() # TODO (Load Users from storage here)
+
 
 class Client:
     def __init__(self, name, state_users = []):
@@ -30,6 +32,9 @@ class Client:
         
         self._state_users = state_users
 
+    @property
+    def state_users(self):
+        return self._state_users
     def set_url(self, url: str):
         self.base_url = url
     def set_sandbox(self, _new: bool):
@@ -37,12 +42,18 @@ class Client:
         self.set_url(ftoml[self.name]["sandbox_url"] if _new else ftoml[self.name]["production_url"])
 
     
-    def _post(self, endpoint: str, addHeaders: dict[str, str] = {}, payload: dict = {}) -> dict:
+    def _post(self, endpoint: str, addHeaders: dict[str, str] = {}, payload: dict = {}, code: tuple[bool, str] = (False, "")) -> dict:
         url = self.base_url +  endpoint
     
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        return self._handle_response(requests.post(url, data=payload, headers=dict(headers | addHeaders)))
+        if not code[0]:
+            return self._handle_response(requests.post(url, data=payload, headers=dict(headers | addHeaders)))
+        else:
+           
+            return self._handle_code_response(requests.post(url, data=payload, headers=headers), code[1])
+
+
         
     def _handle_response(self, response: Response) -> dict:
         try:
@@ -63,16 +74,19 @@ class Client:
                     "message": "Session invalid with dexcom, refresh... If not during debugging contact",
                     "error": str(e())
             }, 500
-    def _transform_user(self, state: str) -> dict:
+    def _transform_user(self, state: str, uid: str) -> dict:
         for user in self._state_users:
             if user["state"] == state:
                 # Will add the usernID to dict of all users
-                res = self._post(endpoint=self.endpoints["userID"]["url"], addHeaders= {"Authorization": "Bearer {}".format(user["access_token"])})
-                        
-                if users.get(res["userId"]) is None:
-                    users[res["userId"]] = {}
-                users[res["userId"]][self.name] = self.get_user(state)
-                return users[res["userId"]][self.name]
+                
+                users._make_user(uid)
+                # check if user exsists + creates ut uf ut diwsb;t
+                users + (uid, self.name, self.get_user(state)) # uid, provider, data
+                return str(users.get(uid))
+            return {
+                "message": "state: {} not found, you fucking suck".format(state)
+            }
+                
     def _fetch_token(self, authorization_code: str, state: str,  base_url: str, grant_type: str = "authorization_code"):
         logger.info("Fetching Acess Token with Params: Auth Code: {}, State: {}, Redirect Url: {}".format(authorization_code, state, base_url))
 
@@ -87,13 +101,15 @@ class Client:
         }
 
 
-        return self._post(self.endpoints["token"], payload=payload)
+        return self._post(self.endpoints["token"], payload=payload, code=(True, state))
      
 
         
-    def _handle_code_response(self, data: dict, state: str) -> dict:
+    def _handle_code_response(self, data: Response, state: str) -> dict:
+        data = self._handle_response(data)
         data["state"] = state
         self._state_users.append(data)
+        logger.info("Adding StateUser Handling Response: {}, State: {}".format(data, state))
         
 
         return data
@@ -144,3 +160,8 @@ class ClientAPI:
                 clients.append(Client.from_name(client))
         
         return ClientAPI(app, clients=clients)
+
+    def save(self, loc: str | None = None) -> str:
+        logger.info("{} is being saved to {}".format(str(self), self.save_file if loc is None else loc))
+        open(self.save_file if loc is None else loc, "w").write(json.dumps(self.to_save()))
+        return self.save_file if loc is None else loc

@@ -15,6 +15,10 @@ def as_var(name, _type: any= str, default: None or any = None) -> any or str: # 
 
 # constants 
 TOML_FILE_PATH = as_var("TOML_FILE_PATH", str, "auth.toml")
+DATA_FOLDER = "data"
+
+if not os.path.exists(DATA_FOLDER):
+    os.makedirs(DATA_FOLDER)
 handler = colorlog.StreamHandler()
 
 logger = colorlog.getLogger(__name__)
@@ -33,6 +37,8 @@ else:
     HOST = toml["server"]["host"]
     DEBUG = toml["server"]["debug"]
     PORT = toml["server"]["port"]
+    USERS_FILE_PATH = toml["options"]["user_file_path"]
+
 
 if not TO_STDOUT: logging.basicConfig(filename='logs/server.log', level=logging.INFO)
 else: logging.basicConfig(stream=sys.stdout, level=logging.INFO)
