@@ -35,20 +35,23 @@ class UserManager(Saveable):
             return super().save()
         else:
             ... # IMplement Storage Bucket
-    @classmethod
-    def load(cls, file_name: str | None = None): 
-        if cls.isLocal():
+    @staticmethod
+    def load(file_name: str | None = None, ): 
+        if bool(CONFIG.USERS["local"]):
+            file_name = file_name if file_name is not None else CONFIG.USERS["file_path"]
+            file_name = CONFIG._replace(file_name)
             try:
                 loaded: dict = json.loads(
-                        open(CONFIG._valid_directory(file_name), "r").read()
+                        open(CONFIG._replace(file_name), "r").read()
                     )
-                return cls(
-                    **dict(loaded | {
+                return UserManager(
+                    users=dict(loaded | {
                         "file_name": file_name
-                        }), # Can be changed in subclassing
+                        })["users"], # Can be changed in subclassing
                 )
             except json.JSONDecodeError as e:
-                raise LoadingError(e.msg, e.doc, e.pos)
+                logger.error("Trouble Loading {}".format(file_name))
+                raise LoadingError(e.msg)
         else:
             ... # Seperate Loading method -- not local
     @property
@@ -61,9 +64,10 @@ class UserManager(Saveable):
   
     def get(self, uid: str, provider: str | None = None, autopopulate: bool = False) -> dict | None:
         if self.isLocal():
+            print("Where's user")
             if provider is not None:
                 if self.get(uid) is not None:
-                    return self.users[uid].get(provider)
+                    return self.users[uid]["providers"].get(provider)
                 
                 return None
             try:
@@ -92,13 +96,14 @@ class UserManager(Saveable):
     def _make_user(self, uid: str, **kwargs: dict) -> dict | None:
         if self.isLocal():
             if self.get(uid, autopopulate=False) is None:
-                self.users[uid] = {}
+                self.users[uid] = {"providers":{}}
             
             # Make it autopopulate from the kwarg        
             if len(kwargs.keys()) > 0:
                 for key in kwargs.keys():
                     #self.users[uid][key] = kwargs.get(key) # set the providers
-                    self._make_provider(uid, key, kwargs[key])
+                    self.users[uid][key] = kwargs.get(key)
+                    #self._make_provider(uid, key, kwargs[key])
         
             return self.get(uid)
         else:
@@ -114,13 +119,14 @@ class UserManager(Saveable):
     def _remove_provider(self, uid: str, provider: str) -> dict | None:
         if self.isLocal():
             if self._users.get(uid) is not None:
-                if self._users.get(uid).get(provider) is not None:
-                    return self._users.get(uid).pop(provider)
+                if self._users.get(uid)["providers"].get(provider) is not None:
+                    return self._users.get(uid)["providers"].pop(provider)
         else:
             ...
         
-    def _make_provider(self, uid, provider: str, data: dict):
-        return self._make_user(uid, **{provider: data})
+    def _make_provider(self, uid, provider: str, data: dict, **kwargs):
+        # Can make either thru kwargs or thru the provided 
+        return self._make_user(uid, **dict({"providers": {provider: data} | kwargs}))
 
     # Abstraction Layers (for new users)
     def add(self, uid: str, provider: str | None = None, data: dict | None = None) -> dict | None:
@@ -131,8 +137,10 @@ class UserManager(Saveable):
         return self._remove_user(id)
     
     # Abstraction Layers
-    def __add__(self, data: tuple[str, str, dict]) -> dict | None:
-        return self._make_user(data[0], **{data[1]: data[2]})
+    def __add__(self, data: tuple[str, str, dict] | tuple[str]) -> dict | None:
+        if len(data) < 3:
+            return self._make_user(data[0])
+        return self._make_provider(data[0], data[1], data[2]) # use _make_provider abstraction
     def __sub__(self, uid: str | tuple) -> dict | None:
         if type(uid) is str:
             return self._remove_user(uid)
@@ -148,11 +156,20 @@ class UserManager(Saveable):
             "str": self.__repr__(),
             "users": self.users,
             "amount": len(self.users),
-            "save_file": self.save_file,
         }
-    def to_save(self) -> dict:
+    
+    def to_dict(self) -> dict:
         return {
+            "str": self.__repr__(),
             "users": self.users,
+            "amount": len(self.users),
+        }
+
+        
+    @classmethod
+    def if_empty(cls) -> dict:
+        return {
+            "users":{}
         }
     def __repr__(self) -> str:
         return "<UserManager>[User Count: {}]".format(len(self.users))

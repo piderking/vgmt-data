@@ -3,12 +3,22 @@ from typing import Any
 
 
 class _VResponse:
-
+    def serialize(self, data: any) -> dict:
+        if type(data) is dict:
+            return {
+                key: self.serialize(data[key]) for key in data.keys()
+            } 
+        if type(data) is object:
+            print("Sdl;kf;sldkf;lksd;lf")
+            print(data)
+            return data.to_dict() if hasattr(data, "to_dict") else data
+        return data
+    
     def __call__(self, data: dict, code: int, message: str | None = None) -> type:
         return (dict({
             "message": message,
             "code": code,
-        } | data if message else {} | data), code)
+        } | self.serialize(data) if message else {} | self.serialize(data)), code)
 
 class _VSuccessResponse(_VResponse):
     def __call__(self, data: dict, code: int, message: str | None = None) -> type:

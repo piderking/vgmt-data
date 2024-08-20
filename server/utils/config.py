@@ -51,8 +51,9 @@ class Config():
         Returns:
             str: Path for file or directory
         """
+        #print(path)
         dir_path = "/".join(path.split("/")[:-1]) if path.split("/")[-1].find(".") else path
-        print(dir_path, path)
+        #print(dir_path, path)
 
         if not os.path.exists(dir_path):
             print("Directory: {} doesn't exsist")
@@ -60,13 +61,20 @@ class Config():
         return path
     
     def _replace(self, path: str) -> str:
-        path = path.split("/")
-        for idx,val in enumerate(path):
-            if val.find("<") != -1:
-                for key in self.PATHS.keys():
-                    if val == "<{}>".format(key):
-                        path[idx] = self.PATHS[key]
-        return self._valid_directory("/".join(path))
+        try:
+            if path is None:
+                raise ValueError("_replace() found variable with path: None")
+            path = path.split("/")
+            for idx,val in enumerate(path):
+                if val.find("<") != -1:
+                    for key in self.PATHS.keys():
+                        if val == "<{}>".format(key):
+                            path[idx] = self.PATHS[key]
+            return self._valid_directory("/".join(path))
+        except AttributeError as e:
+            print(e)
+            if path is None:
+                raise ValueError("_replace() found variable with path: None")
         """
                 if len(path.split("<")) > -1:
             for folder in self.PATHS.keys():

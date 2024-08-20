@@ -10,10 +10,10 @@ class SavingError(OSError):
         logger.error("Issue Saving the Object see, utils/saving.py")                
         super().__init__(*args)
 
-class LoadingError(json.JSONDecodeError):
-    def __init__(self, msg: str, doc: str, pos: int) -> None:
-        logger.error("{}::Had issues decoding at position {}".format(doc, pos))
-        super().__init__(msg, doc, pos)
+class LoadingError(Exception):
+    def __init__(self, msg: str) -> None:
+        logger.error("{}::Had issues decoding".format(msg))
+        super().__init__()
 
 
         

@@ -4,7 +4,7 @@ from .env import *
 import logging, colorlog
 import sys
 from .response import VSuccessResponse, VErrorResponse
-
+from .utils.saving import to_save
 from .worker.endpoint import EndpointManager, users
 app = Flask(__name__)
 holder = EndpointManager()
@@ -33,20 +33,7 @@ def all_endpoints():
 
         
     }, code=200)
-    return VSuccessResponse(dict({
-        "clients": list([{
-            "name": client.name,
-            "client_Id": "".join(["#" for _ in client.clientId[:len(client.clientId) - 5]]) + client.clientId[len(client.clientId) - 5:],
-            "client_secret": "".join(["#" for _ in client.clientSecret[:len(client.clientSecret) - 5]]) + client.clientSecret[len(client.clientSecret) - 5:],
-            "base_url": client.base_url,
-            "redirect_url": client.redirect_url,
-            "endpoints": client.endpoints,
-            "tokens": client.tokens,
-            "sandbox": client.sandbox,
-            
-            } for client in holder.clients.values() ]),
-        "amount": len(holder.clients.keys())
-    }), 200)
+
         
 @app.route("/endpoints/<endpoint>")
 def endpoints(endpoint):
@@ -105,7 +92,7 @@ def delete_user(uid):
 @app.route("/users/<uid>", methods=["GET"])
 def view_user(uid):
     v = users.get(uid)
-    return VSuccessResponse(v, 200) if v is not None else VErrorResponse({}, 404, "User of UID is None")
+    return VSuccessResponse(v, 200) if v is not None else VErrorResponse({}, 404, "User of UID::{} is None".format(uid))
 @app.route("/users/<uid>/claim/", methods=["GET"])
 def transform(uid):
     endpoint = request.args.get("endpoint")
@@ -116,10 +103,10 @@ def transform(uid):
             "message": "Endpoint: {} or State: {} not found".format(endpoint, state)
         }, 404)
 
-    for client in holder.clients:
-        if client.name == endpoint:
-            if client._transform_user(state, uid) is not None:
-                return redirect("/users/{}".format(uid)) # TODO Add redirect URL
+    client =  holder.__getattr__(endpoint)
+
+    if client._transform_user(state, uid) is not None:
+        return redirect("/users/{}".format(uid)) # TODO Add redirect URL
     return VErrorResponse({
         "message": "Try again, no state user was found for the given state and user".format(endpoint,),
         "try-again":"/users/{}/claim?state={}&endpoint={}".format(uid, state, endpoint),
@@ -128,12 +115,15 @@ def transform(uid):
 
 @app.route("/users/")
 def all_current_users():
-    return users.to_save() # Get All Users
+    return users.to_dict() # Get All Users
     
 @app.route("/save/")
 def save():
     logger.info("/save called, saving process comencing...")
-    users.save(request.args.get("filename"))
+
+    for saveable in to_save:
+        logger.info("Saving to {}::{}".format(saveable.file_name, saveable.__name__))
+        saveable.save()
     # TODO Add ClientAPI Saving
     # holder.save(request.args.get('filename'))
     

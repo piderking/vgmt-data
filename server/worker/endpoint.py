@@ -6,7 +6,7 @@ from ..utils.exceptions import EndpointDefinitionMissing
 from ..utils.tokens import OAUTH_TOKEN
 from ..response import VSuccessResponse, VErrorResponse
 
-users: UserManager = UserManager()
+users: UserManager = UserManager.load()
 ENDPOINTS: dict = json.loads(
     open(CONFIG._replace(CONFIG.ENDPOINTS["path"])).read()
 )
@@ -118,8 +118,8 @@ class Endpoint:
                 
                 users._make_user(uid)
                 # check if user exsists + creates a entry for this provider
-                users + (uid, self.name, self.get_user(state)) # uid, provider, data
-                return str(users.get(uid))
+                users._make_provider(uid, self.name, self.get_user(state)) # uid, provider, data
+                return users.get(uid)
             return {
                 "message": "state: {} not found, you fucking suck".format(state)
             }
@@ -160,7 +160,7 @@ class Endpoint:
             "base_url": self.base_url,
             "redirect_url": self.redirect_url,
             "endpoints": self.endpoints,
-            "tokens": self.tokens,
+            "tokens": [token.to_dict() for token in self.tokens],
             "sandbox": self.sandbox,
         }
     @staticmethod        
