@@ -1,1 +1,1 @@
-from .user import UserManager
+from ..worker.user import UserManager

@@ -1,21 +1,27 @@
-[dexcom]
-client_id = "buW1km1Ig6BfWwh0S0S5phKWhmQSse8t"
-client_secret = "NVFP7f9QiBkFKriT"
-auth_url = "/v2/oauth2/login"
-token_url = "/v2/oauth2/token"
-user_id_url = "/v3/users/self/devices"
-user_id_key = "userId"
-sandbox = true
-sandbox_url="https://sandbox-api.dexcom.com"
-production_url="https://api.dexcom.com"
-
 [oauth]
-redirect_url = "/"
+redirect_url = "/endpoints/"
 
 [server]
 port = 3321
 debug = true
 host = "0.0.0.0"
 
+[users]
+local = true
+file_path = "<data_path>/users.json"
+url = ""
+web_config = "<config_path>/web.json"
+
+[endpoints]
+path = "<config_path>/endpoints.json"
+
+[data]
+file_structure = "<data_path>/{uid}/{endpoint}/{day}.csv"
+
+[paths]
+config_path = "config"
+data_path = "data"
+
 [options]
-user_file_path = "data/users.json"
+to_std_out = true
+

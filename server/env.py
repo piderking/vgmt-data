@@ -2,26 +2,13 @@ import os
 from logging import info
 import toml as toml_mod
 import colorlog, logging, sys
-def as_var(name, _type: any= str, default: None or any = None) -> any or str: # type: ignore
-    t = os.environ.get(name)
-    if t is not None:
-        if _type is not None:
-            return _type(t)
-        else:
-            return t # Defaults as a string
-    else:
-        return default if default is not None else ""
+
+from .toml import CONFIG
 
 
-# constants 
-TOML_FILE_PATH = as_var("TOML_FILE_PATH", str, "auth.toml")
-DATA_FOLDER = "data"
-
-if not os.path.exists(DATA_FOLDER):
-    os.makedirs(DATA_FOLDER)
-handler = colorlog.StreamHandler()
 
 logger = colorlog.getLogger(__name__)
+handler = colorlog.StreamHandler()
 logger.addHandler(handler)
 
 
@@ -31,16 +18,14 @@ if not os.path.exists("auth.toml"):
    raise FileNotFoundError("No auth.toml")
 
 else:
-    toml = toml_mod.loads(open("auth.toml").read())
-
-    TO_STDOUT = True
-    HOST = toml["server"]["host"]
-    DEBUG = toml["server"]["debug"]
-    PORT = toml["server"]["port"]
-    USERS_FILE_PATH = toml["options"]["user_file_path"]
+    TO_STDOUT = bool(CONFIG.options["to_std_out"])
+    HOST = CONFIG.server["host"]
+    DEBUG = CONFIG.server["debug"]
+    PORT = CONFIG.server["port"]
 
 
 if not TO_STDOUT: logging.basicConfig(filename='logs/server.log', level=logging.INFO)
 else: logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
 
 

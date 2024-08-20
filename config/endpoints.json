@@ -1,0 +1,23 @@
+{
+    "dexcom":{
+        "client_id": "buW1km1Ig6BfWwh0S0S5phKWhmQSse8t",
+        "client_secret": "NVFP7f9QiBkFKriT",
+        "sandbox":true,
+        "urls": {
+            "sandbox": "https://sandbox-api.dexcom.com",
+            "production": "https://api.dexcom.com"
+        },
+        "endpoints":{
+            "auth": "/v2/oauth2/login",
+            "token": "/v2/oauth2/token",
+            "get": {
+                "keys": [],
+                "url": "/v3/... (get data)"
+            }
+
+        },
+        "scopes": ["offline_access"]
+       
+        
+    }
+}
