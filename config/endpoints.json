@@ -10,6 +10,7 @@
         "endpoints":{
             "auth": "/v2/oauth2/login",
             "token": "/v2/oauth2/token",
+            "refresh": "/v2/oauth2/token",
             "get": {
                 "keys": [],
                 "url": "/v3/... (get data)"

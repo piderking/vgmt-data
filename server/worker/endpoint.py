@@ -61,8 +61,7 @@ class Endpoint:
         self.base_url = (self.config["urls"]["sandbox"] if self.sandbox else self.config["urls"]["production"])
         return _new
     
-    
-    def _post(self, endpoint: str, addHeaders: dict[str, str] = {}, payload: dict = {}, code: tuple[bool, str] = (False, "")) -> dict:
+    def _get(self, endpoint: str, addHeaders: dict[str, str] = {}, payload: dict = {}, code: tuple[bool, str] = (False, "")) -> dict:
         url = self.base_url +  endpoint
     
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -71,6 +70,18 @@ class Endpoint:
             return self._handle_response(requests.post(url, data=payload, headers=dict(headers | addHeaders)))
         else:
             return self._handle_code_response(requests.post(url, data=payload, headers=headers), code[1])
+
+    
+    def _post(self, endpoint: str, addHeaders: dict[str, str] = {}, payload: dict = {}, code: bool = False, refresh: bool = False, state: any =  None) -> dict:
+        url = self.base_url +  endpoint
+    
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        if code:
+            return self._handle_code_response(requests.post(url, data=payload, headers=headers), state=state)
+        elif refresh:
+            return self._handle_refresh_response(requests.post(url, data=payload, headers=headers), token=state)
+        return self._handle_response(requests.post(url, data=payload, headers=dict(headers | addHeaders)))
 
 
         
@@ -110,6 +121,16 @@ class Endpoint:
         logger.info("Adding StateUser Handling Response: {}, State: {}".format(data, state))
         
         return data
+    
+    def _handle_refresh_response(self, data: Response, token: OAUTH_TOKEN) -> dict:
+        data = self._handle_response(data)
+        data["state"] = token.state
+        
+        # Transform dict into _token object 
+        #self.tokens.append(OAUTH_TOKEN(**data))
+        #logger.info("Adding StateUser Handling Response: {}, State: {}".format(data, state))
+        
+        return data
        
     def _transform_user(self, state: str, uid: str) -> dict:
         for token in self.tokens:
@@ -124,23 +145,36 @@ class Endpoint:
                 "message": "state: {} not found, you fucking suck".format(state)
             }
                 
-    def _fetch_token(self, authorization_code: str, state: str,  base_url: str, grant_type: str = "authorization_code"):
-        logger.info("Fetching Acess Token with Params: Auth Code: {}, State: {}, Redirect Url: {}".format(authorization_code, state, base_url))
+    def _fetch_token(self, authorization_code: str, state: str,  redirect_url: str, grant_type: str = "authorization_code"):
+        logger.info("Fetching Acess Token with Params: Auth Code: {}, State: {}, Redirect Url: {}".format(authorization_code, state, redirect_url))
 
 
         payload = {
         "grant_type":grant_type,
         "code": authorization_code,
-        "redirect_uri": base_url,
+        "redirect_uri": redirect_url,
         "client_id": self.clientId,
         "client_secret": self.clientSecret
         }
 
 
-        return self._post(self.endpoints["token"], payload=payload, code=(True, state))
+        return self._post(self.endpoints["token"],payload=payload, code=True, state=state)
      
 
-        
+    def _refresh_token(self, token: OAUTH_TOKEN,  redirect_url: str) -> dict:
+        logger.info("Fetching Acess Token with Params: Auth Code: {}, State: {}, Redirect Url: {}".format(token.authorization_code, state, redirect_url))
+
+
+        payload = {
+            "access_token": token.access_token,
+            "expires_in": 7200,
+            "token_type": "Bearer",
+            "refresh_token":token.refresh_token,
+        }
+
+
+        return self._post(self.endpoints["refresh"], payload=payload, refresh=True, state=token)
+     
 
     def get_user(self, state: str, remove: bool = True) -> dict | Response:
         for user in self.tokens:
@@ -183,6 +217,7 @@ class EndpointManager:
         ep.clients["endpoint_name"]
         ```
         > To edit config for the endpoint manager edit the endpoints.json or auth.toml
+        > Endpoint's aren't saved between sessions, reauthentication is required
         """
         self.clients = {
             endp_name: Endpoint(endp_name) for endp_name in ENDPOINTS.keys()
