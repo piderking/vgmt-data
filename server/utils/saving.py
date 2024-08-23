@@ -1,8 +1,9 @@
 import os
 from ..toml import CONFIG
 from abc import abstractmethod
-from .exceptions import SavingError, LoadingError
+from .exceptions import SavingError, LoadingError, SerializeError
 import json
+from ..env import logger
 
 class Saveable(object):
     def __init__(self, file_name: str | None = None)->  None:
@@ -41,10 +42,33 @@ class Saveable(object):
             raise SavingError("Failed to save @path::{}\t @infered::{}".format(self.file_name, CONFIG._valid_directory(self.file_name)))
     
     @abstractmethod
+    def to_dict(self) -> dict:
+        ...
+        
+    def serialize(self, **data: dict) -> dict:
+        for key, value in data.items():
+            if type(value) is dict:
+                data[key] = self.serialize(**value)
+            elif hasattr(value, "to_dict"):
+                data[key] = self.serialize(**value.to_dict())
+            # default to nothing
+        return data
     def to_save(self) -> dict[str, any]:
-        return dict({
-            
-        })
+        return self.serialize(**self.to_dict())
+    @staticmethod
+    def save_all():
+        logger.info("Saving Started...")
+        try:
+            for saveable in to_save:
+                logger.info("Saving to {}::{}".format(saveable.file_name, saveable.__name__))
+                saveable.save()
+        except Exception as e:
+            logger.error("Exception in Saving occured: {}".format(e))
+            try:
+                os.remove(saveable.file_name)
+            finally:
+                ...
+            raise SavingError("In Save All")
 
         
 to_save: Saveable = [] 

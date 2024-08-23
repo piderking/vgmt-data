@@ -1,15 +1,16 @@
 import toml, requests, json, os
 from flask import url_for, Flask, request, Response
 from ..env import logger, CONFIG
-from ..data import UserManager
+from ..data.responses import UserManager
 from ..utils.exceptions import EndpointDefinitionMissing
-from ..utils.tokens import OAUTH_TOKEN
+from ..utils.tokens import OAUTH_TOKEN, ExpiredToken
 from ..response import VSuccessResponse, VErrorResponse
+from ..data.responses import WebResponse, TokenResponse, RefreshTokenResponse
 
 users: UserManager = UserManager.load()
 ENDPOINTS: dict = json.loads(
     open(CONFIG._replace(CONFIG.ENDPOINTS["path"])).read()
-)
+) # Load files from config
 class Endpoint:
     def __init__(self, name: str, tokens: list[dict | OAUTH_TOKEN] = []):
         """Endpoint utility class, utilized by EndpointManager
@@ -42,10 +43,16 @@ class Endpoint:
         self.redirect_url = CONFIG.OAUTH["redirect_url"] + self.name
         
         # Avaliable Tokens
+        # TODO (Make not in memory --> could get huge)
         self._tokens: list[OAUTH_TOKEN] = list(map(lambda token: OAUTH_TOKEN(**token) if type(token) is dict else token, tokens))
 
     @property
-    def tokens(self):
+    def tokens(self) -> list[OAUTH_TOKEN]:
+        """Unclaimed Authorized Tokens
+
+        Returns:
+            list[OAUTH_TOKEN]: List of unclaimed authorization tokens 
+        """
         return self._tokens
     
     def set_sandbox(self, _new: bool) -> bool:
@@ -72,79 +79,24 @@ class Endpoint:
             return self._handle_code_response(requests.post(url, data=payload, headers=headers), code[1])
 
     
-    def _post(self, endpoint: str, addHeaders: dict[str, str] = {}, payload: dict = {}, code: bool = False, refresh: bool = False, state: any =  None) -> dict:
+    def _post(self, endpoint: str, payload: dict,**kwargs: dict ) -> WebResponse | TokenResponse | RefreshTokenResponse:
         url = self.base_url +  endpoint
     
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        headers = dict({"Content-Type": "application/x-www-form-urlencoded"} | kwargs["headers"] if kwargs.get("headers") else {})
 
-        if code:
-            return self._handle_code_response(requests.post(url, data=payload, headers=headers), state=state)
-        elif refresh:
-            return self._handle_refresh_response(requests.post(url, data=payload, headers=headers), token=state)
-        return self._handle_response(requests.post(url, data=payload, headers=dict(headers | addHeaders)))
-
-
+        if type(kwargs.get("token")) is OAUTH_TOKEN:
+            return RefreshTokenResponse(requests.post(url, data=payload, headers=headers), kwargs["token"])
+        elif type(kwargs.get("state")) is str:
+            return TokenResponse(requests.post(url, data=payload, headers=headers), kwargs["state"])
         
-    def _handle_response(self, response: Response) -> dict:
-        """Handle Web Request and either read data or spit errors
+        return WebResponse(requests.post(url, data=payload, headers=headers), {}) 
 
-        Args:
-            response (Response): __mod__::requests (Web Request Library) response 
 
-        Returns:
-            dict: Contents of the response, transforming from json
-        """
-        try:
 
-            if response.status_code < 300:
-                return response.json()
-            else:
-                return {
-                    "message": "Session invalid with {}, refresh... If not during debugging contact".format(self.name),
-                    "recieved_code": response.status_code,
-                    "recieved_text": response.text
-                }, 500
-                
-        except Exception as e:
-            logger.exception(e())
-            return {
-                    "message": "Session invalid with {}, refresh... If not during debugging contact".format(self.name),
-                    "error": str(e())
-            }, 500
+
     
-    def _handle_code_response(self, data: Response, state: str) -> dict:
-        data = self._handle_response(data)
-        data["state"] = state
-        
-        # Transform dict into _token object 
-        self.tokens.append(OAUTH_TOKEN(**data))
-        logger.info("Adding StateUser Handling Response: {}, State: {}".format(data, state))
-        
-        return data
     
-    def _handle_refresh_response(self, data: Response, token: OAUTH_TOKEN) -> dict:
-        data = self._handle_response(data)
-        data["state"] = token.state
-        
-        # Transform dict into _token object 
-        #self.tokens.append(OAUTH_TOKEN(**data))
-        #logger.info("Adding StateUser Handling Response: {}, State: {}".format(data, state))
-        
-        return data
-       
-    def _transform_user(self, state: str, uid: str) -> dict:
-        for token in self.tokens:
-            if token.state == state:
-                # Will add the usernID to dict of all users
-                
-                users._make_user(uid)
-                # check if user exsists + creates a entry for this provider
-                users._make_provider(uid, self.name, self.get_user(state)) # uid, provider, data
-                return users.get(uid)
-            return {
-                "message": "state: {} not found, you fucking suck".format(state)
-            }
-                
+    # Token Section
     def _fetch_token(self, authorization_code: str, state: str,  redirect_url: str, grant_type: str = "authorization_code"):
         logger.info("Fetching Acess Token with Params: Auth Code: {}, State: {}, Redirect Url: {}".format(authorization_code, state, redirect_url))
 
@@ -158,13 +110,15 @@ class Endpoint:
         }
 
 
-        return self._post(self.endpoints["token"],payload=payload, code=True, state=state)
-     
-
-    def _refresh_token(self, token: OAUTH_TOKEN,  redirect_url: str) -> dict:
-        logger.info("Fetching Acess Token with Params: Auth Code: {}, State: {}, Redirect Url: {}".format(token.authorization_code, state, redirect_url))
-
-
+        n = self._post(self.endpoints["token"],payload, state=state)
+        self._tokens.append(n.to_token())
+        
+        return n
+    
+    
+    
+    # Token Verification Logic
+    def _refresh_token(self, token: OAUTH_TOKEN) -> OAUTH_TOKEN:
         payload = {
             "access_token": token.access_token,
             "expires_in": 7200,
@@ -172,10 +126,40 @@ class Endpoint:
             "refresh_token":token.refresh_token,
         }
 
+        
+        return self._post(self.endpoints["refresh"], payload, token=token).to_token()
+    
+    def _verify_token(self, token:OAUTH_TOKEN) -> OAUTH_TOKEN:
+        """Abstraction + Helping Method -> Interact with OAuthToken Object
+            
 
-        return self._post(self.endpoints["refresh"], payload=payload, refresh=True, state=token)
-     
+        Args:
+            token (OAUTH_TOKEN): OAuth Token
 
+        Returns:
+            OAUTH_TOKEN: Verified OAuth Token
+        """
+        try:
+            logger.info("Trying to get TOKEN::Success={}".format(token.access_token is not None))
+        except ExpiredToken:
+            logger.warning("Token Expired...Refreshing")
+            return self._refresh_token(token)
+
+    
+    
+    # User Section
+    def _transform_user(self, state: str, uid: str) -> dict:
+        for token in self.tokens:
+            if token.state == state:
+                # Will add the usernID to dict of all users
+                
+                users._make_user(uid)
+                # check if user exsists + creates a entry for this provider
+                users._make_provider(uid, self.name, self.get_user(state)) # uid, provider, data
+                return users.get(uid)
+            return {
+                "message": "state: {} not found, you fucking suck".format(state)
+            }
     def get_user(self, state: str, remove: bool = True) -> dict | Response:
         for user in self.tokens:
             if user.state == state:
@@ -186,6 +170,8 @@ class Endpoint:
            "message": "{} No Token Found Entry for : {}".format(self.name, state)
         }, 404
     
+    
+    # Utility Section
     def to_dict(self) -> dict:
         return {
             "name":self.name,
@@ -247,4 +233,31 @@ class EndpointManager:
         ...
     
 
+def verify_token(token_key: str | None = None):
+        """Verify all tokens in a function request
 
+        Args:
+            token_key (str, optional): special token only want to be verified in the kwargs
+            
+        """
+        def decorator(function):
+            def wrapper(*args, **kwargs):
+                self: Endpoint = args[0] # Self
+                if token_key is None:
+                    for idx, arg in enumerate(args):
+                        if type(arg) is OAUTH_TOKEN:
+                            args[idx] = self._verify_token(arg)
+                        # If not OAUTH Token then pass through
+                    for key, val in zip(kwargs.keys(), kwargs.values()):
+                        if type(val) is OAUTH_TOKEN:
+                            kwargs[key] = self._verify_token(val)
+                        # If not OAuth Token then pass through
+                else:
+                    if type(kwargs.get(token_key)) is OAUTH_TOKEN:
+                        kwargs[token_key] = self._verify_token(kwargs.get(token_key))
+                    # Else Default
+                # Finished Result Sent Back
+                result = function(*args, **kwargs)
+                return result
+            return wrapper
+        return decorator

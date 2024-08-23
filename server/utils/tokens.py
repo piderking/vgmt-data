@@ -1,6 +1,9 @@
 from typing import Any
 from time import time
 
+class ExpiredToken(Exception):
+    pass
+
 class OAUTH_TOKEN:
     def __init__(self, **data: dict):
         self.data = data 
@@ -9,15 +12,24 @@ class OAUTH_TOKEN:
     def __getattr__(self, name: str) -> Any:
         print("Trying to get: {}".format(name))
         d = self.data.get(name.replace(" ", "_").strip().lower())
-        
         if d is None:
             raise KeyError("Token Object: {} has no key {}, possible keys...\t{}".format(str(self), name, ",".join(self.data.keys())))
+
         return d
-    def _expire(self) -> bool: # self.expires_in is from loading tokened response
+    
+    def isExpired(self) -> bool: # self.expires_in is from loading tokened response
         self.EXPIRED  = time() - self.create_time > self.expires_in * 60
+        
+        if self.EXPIRED:
+            raise ExpiredToken()
+        
         return self.EXPIRED
-    def _refresh(self):
-        ...
+    def _refresh(self, refresh_data: dict):
+        self.create_time = time()
+        for (key, data) in refresh_data:
+            self.data[key] = data
+        self.isExpired()
+        return self
     @classmethod
     def from_dict(cls, **kwargs: dict):
         return cls(**kwargs)

@@ -4,7 +4,7 @@ from .env import *
 import logging, colorlog
 import sys
 from .response import VSuccessResponse, VErrorResponse
-from .utils.saving import to_save
+from .utils.saving import Saveable
 from .worker.endpoint import EndpointManager, users
 app = Flask(__name__)
 holder = EndpointManager()
@@ -16,14 +16,7 @@ def index():
 @app.route("/docs")
 def docs():
     return VErrorResponse({}, 200, message="Unimplemented")
-@app.route("/state")
-def state():
-    state = request.args.get("state")
-    if state is not None:
-        if state in holder:
-            return holder[state]
-        
-    return "sd"
+
 
 @app.route("/endpoints/")
 def all_endpoints():
@@ -52,7 +45,7 @@ def endpoints(endpoint):
         return VErrorResponse({}, 401, message="Either state or code arguement is none, no bueno! Is None? -> State: {}, Code: {}".format(request.args.get("code") is None, request.args.get("state") is None))
 
 
-@app.route("/state_users/<endpoint>/users")
+@app.route("/endpoint/<endpoint>/tokens/")
 def endpoint_users(endpoint):
     logger.debug("{} Endpoint Used".format(endpoint))
     
@@ -93,6 +86,18 @@ def delete_user(uid):
 def view_user(uid):
     v = users.get(uid)
     return VSuccessResponse(v, 200) if v is not None else VErrorResponse({}, 404, "User of UID::{} is None".format(uid))
+
+@app.route("/users/<uid>/remove/", methods=["GET"]) # TODO Change to POST
+def remove_user(uid):
+    v = users._remove_user(uid)
+    return VSuccessResponse(v, 200) if v is not None else VErrorResponse({}, 404, "User of UID::{} is None".format(uid))
+
+@app.route("/users/<uid>/<provider>/remove/", methods=["GET"]) # TODO Change to POST
+def remove_provider(uid, provider):
+    v = users._remove_provider(uid, provider)
+    return VSuccessResponse(v, 200) if v is not None else VErrorResponse({}, 404, "User of UID::{}::Provider::{} is None".format(uid, provider))
+
+
 @app.route("/users/<uid>/claim/", methods=["GET"])
 def transform(uid):
     endpoint = request.args.get("endpoint")
@@ -121,9 +126,8 @@ def all_current_users():
 def save():
     logger.info("/save called, saving process comencing...")
 
-    for saveable in to_save:
-        logger.info("Saving to {}::{}".format(saveable.file_name, saveable.__name__))
-        saveable.save()
+    
+    Saveable.save_all()
     # TODO Add ClientAPI Saving
     # holder.save(request.args.get('filename'))
     

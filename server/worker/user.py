@@ -40,18 +40,22 @@ class UserManager(Saveable):
         if bool(CONFIG.USERS["local"]):
             file_name = file_name if file_name is not None else CONFIG.USERS["file_path"]
             file_name = CONFIG._replace(file_name)
-            try:
-                loaded: dict = json.loads(
-                        open(CONFIG._replace(file_name), "r").read()
+            if os.path.exists(file_name):
+                try:
+                    loaded: dict = json.loads(
+                            open(CONFIG._replace(file_name), "r").read()
+                        )
+                    return UserManager(
+                        users=dict(loaded | {
+                            "file_name": file_name
+                            })["users"], # Can be changed in subclassing
                     )
-                return UserManager(
-                    users=dict(loaded | {
-                        "file_name": file_name
-                        })["users"], # Can be changed in subclassing
-                )
-            except json.JSONDecodeError as e:
-                logger.error("Trouble Loading {}".format(file_name))
-                raise LoadingError(e.msg)
+                except json.JSONDecodeError as e:
+                    logger.error("Trouble Loading {}".format(file_name))
+                    raise LoadingError(file_name)
+            else:
+                return UserManager()
+                
         else:
             ... # Seperate Loading method -- not local
     @property
@@ -101,6 +105,9 @@ class UserManager(Saveable):
             # Make it autopopulate from the kwarg        
             if len(kwargs.keys()) > 0:
                 for key in kwargs.keys():
+                    if key == "providers":
+                        for provider in kwargs.get(key).keys():
+                            self.users[uid]["providers"][provider] = kwargs.get(key).get(provider)
                     #self.users[uid][key] = kwargs.get(key) # set the providers
                     self.users[uid][key] = kwargs.get(key)
                     #self._make_provider(uid, key, kwargs[key])
@@ -126,7 +133,7 @@ class UserManager(Saveable):
         
     def _make_provider(self, uid, provider: str, data: dict, **kwargs):
         # Can make either thru kwargs or thru the provided 
-        return self._make_user(uid, **dict({"providers": {provider: data} | kwargs}))
+        return self._make_user(uid, **dict({"providers": dict({provider: data} | kwargs)}))
 
     # Abstraction Layers (for new users)
     def add(self, uid: str, provider: str | None = None, data: dict | None = None) -> dict | None:
@@ -150,14 +157,7 @@ class UserManager(Saveable):
     @staticmethod
     def from_dict(data: dict):
         return UserManager(**data)
-    
-    def to_save(self) -> dict:
-        return {
-            "str": self.__repr__(),
-            "users": self.users,
-            "amount": len(self.users),
-        }
-    
+
     def to_dict(self) -> dict:
         return {
             "str": self.__repr__(),
