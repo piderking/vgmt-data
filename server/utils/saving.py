@@ -7,11 +7,10 @@ from ..env import logger
 
 class Saveable(object):
     def __init__(self, file_name: str | None = None)->  None:
-        
+        self.save_amt = 0
         file_name = "<config_path>/" + self.__qualname__ + ".json" if file_name is None else file_name 
         self.file_name = CONFIG._replace(file_name)
         self.__name__ = str(file_name.split("/")[:-1]).split(".")[0]
-        to_save.append(self)
     
     @classmethod
     def load(cls, file_name: str | None = None): 
@@ -55,20 +54,5 @@ class Saveable(object):
         return data
     def to_save(self) -> dict[str, any]:
         return self.serialize(**self.to_dict())
-    @staticmethod
-    def save_all():
-        logger.info("Saving Started...")
-        try:
-            for saveable in to_save:
-                logger.info("Saving to {}::{}".format(saveable.file_name, saveable.__name__))
-                saveable.save()
-        except Exception as e:
-            logger.error("Exception in Saving occured: {}".format(e))
-            try:
-                os.remove(saveable.file_name)
-            finally:
-                ...
-            raise SavingError("In Save All")
 
         
-to_save: Saveable = [] 

@@ -30,6 +30,17 @@ class Vals(object):
                 data[key] = self.serialize(**value.to_dict())
 
         return data
-d = Vals({"sdsds":"sdfsdfsd", "sd":Vals({"sdfsdf":"sdfsdf"})})
+#self._data = list(zip(*kwargs.keys() + check_any([value.rip() if type(value) is EndpointData else False for _, value in kwargs.items()])))
 
-print(d.to_dict())
+def extend(l: list, n: list):
+    for k in n:
+        l.append(k)
+    return l
+print(list(zip(
+    *[
+        [str(x) for x in range(4)],
+        [1,2,3],
+        [4,5,6],
+        [7,8,9],
+    ]
+)))

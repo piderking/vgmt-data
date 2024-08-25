@@ -153,18 +153,18 @@ class Endpoint:
             if token.state == state:
                 # Will add the usernID to dict of all users
                 
-                users._make_user(uid)
+                users._make_user(uid) # TODO Make this error for no exsisiting user
                 # check if user exsists + creates a entry for this provider
                 users._make_provider(uid, self.name, self.get_user(state)) # uid, provider, data
                 return users.get(uid)
             return {
                 "message": "state: {} not found, you fucking suck".format(state)
             }
-    def get_user(self, state: str, remove: bool = True) -> dict | Response:
-        for user in self.tokens:
-            if user.state == state:
-                if remove: self._tokens.remove(user)
-                return user
+    def get_user(self, state: str, remove: bool = True) -> OAUTH_TOKEN | Response:
+        for idx, token in enumerate(self.tokens):
+            if token.state == state:
+                if remove: self._tokens.pop(idx)
+                return token
             
         return {
            "message": "{} No Token Found Entry for : {}".format(self.name, state)

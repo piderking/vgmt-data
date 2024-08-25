@@ -4,7 +4,10 @@ from uuid import uuid4
 from ..utils.saving import Saveable
 from ..utils.exceptions import LoadingError
 import json
+from ..utils.tokens import OAUTH_TOKEN
+import time
 
+needs_refresh: list[dict] = [] # TODO make runner class, run these refreshes
 class UserManager(Saveable):
     def __init__(self, users: dict = {}) -> None:
         """User Manager, both for Storage Buckets and for Local Saving
@@ -12,21 +15,33 @@ class UserManager(Saveable):
         Args:
             users (dict, optional): _description_. Defaults to {}.
         """
-        # All Users // LOCAL ONLY
-        self._users = users 
+        for uid, user in users.items():
+            if user.get("providers") is not None:
+                for pname, pval in user.get("providers").items():
+                    u = OAUTH_TOKEN(**pval)
+                    if u.expires_at > time.time():
+                        needs_refresh.append(
+                            {
+                                uid, pname
+                            }
+                        )
+                    users[uid]["providers"][pname] =  u # Set the token to the creation
+                    
+
         
         # Is Web
         self._local = bool(CONFIG.USERS["local"])
         
         # Do if local
         if self._local:
-            ...
+            self._users = users 
         else: # Storage Bucket ._.
             self.web_config = json.loads(open(CONFIG.USERS["web_config"], "r").read())
             ...
         
         super().__init__(file_name=CONFIG.USERS["file_path"])
 
+    
     def isLocal(self) -> bool:
         return self._local
     
@@ -107,7 +122,7 @@ class UserManager(Saveable):
                 for key in kwargs.keys():
                     if key == "providers":
                         for provider in kwargs.get(key).keys():
-                            self.users[uid]["providers"][provider] = kwargs.get(key).get(provider)
+                            self.users[uid]["providers"][provider] = kwargs.get("providers").get(provider)
                     #self.users[uid][key] = kwargs.get(key) # set the providers
                     self.users[uid][key] = kwargs.get(key)
                     #self._make_provider(uid, key, kwargs[key])
@@ -131,24 +146,24 @@ class UserManager(Saveable):
         else:
             ...
         
-    def _make_provider(self, uid, provider: str, data: dict, **kwargs):
+    def _make_provider(self, uid, provider: str, data: OAUTH_TOKEN, **kwargs):
         # Can make either thru kwargs or thru the provided 
         return self._make_user(uid, **dict({"providers": dict({provider: data} | kwargs)}))
 
     # Abstraction Layers (for new users)
-    def add(self, uid: str, provider: str | None = None, data: dict | None = None) -> dict | None:
+    def add(self, uid: str, provider: str | None = None, data: OAUTH_TOKEN | None = None) -> dict | None:
         if provider is None or provider is None:
             return self._make_user(uid)
-        return self._make_user(uid, **{provider: data})
+        return self._make_user(uid, **{"providers": {provider: data}})
     def remove(self, id: str) -> dict | None:
         return self._remove_user(id)
     
     # Abstraction Layers
-    def __add__(self, data: tuple[str, str, dict] | tuple[str]) -> dict | None:
+    def __add__(self, data: tuple[str, str, OAUTH_TOKEN] | tuple[str]) -> dict | None:
         if len(data) < 3:
             return self._make_user(data[0])
         return self._make_provider(data[0], data[1], data[2]) # use _make_provider abstraction
-    def __sub__(self, uid: str | tuple) -> dict | None:
+    def __sub__(self, uid: str | tuple[str, str]) -> dict | None:
         if type(uid) is str:
             return self._remove_user(uid)
         elif type(uid) is tuple:

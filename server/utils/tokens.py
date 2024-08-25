@@ -4,11 +4,13 @@ from time import time
 class ExpiredToken(Exception):
     pass
 
+prexpiration = 30 * 60 # 30 Minutes
 class OAUTH_TOKEN:
     def __init__(self, **data: dict):
         self.data = data 
         self.EXPIRED = False
         self.create_time = time()
+        self.expires_at = self.expires_in * 60 + time() - prexpiration # take of the extra time
     def __getattr__(self, name: str) -> Any:
         print("Trying to get: {}".format(name))
         d = self.data.get(name.replace(" ", "_").strip().lower())
@@ -29,6 +31,8 @@ class OAUTH_TOKEN:
         for (key, data) in refresh_data:
             self.data[key] = data
         self.isExpired()
+        self.expires_at = self.expires_in * 60 + time() - prexpiration # take of the extra time
+
         return self
     @classmethod
     def from_dict(cls, **kwargs: dict):

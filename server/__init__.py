@@ -126,8 +126,7 @@ def all_current_users():
 def save():
     logger.info("/save called, saving process comencing...")
 
-    
-    Saveable.save_all()
+    users.save() # TODO Fix 
     # TODO Add ClientAPI Saving
     # holder.save(request.args.get('filename'))
     
