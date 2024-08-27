@@ -8,4 +8,4 @@ __pycache__/
 *.py[cod]
 *$py.class
 server/__pycache__/*.pyc
-data
+data/user.json
