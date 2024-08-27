@@ -12,8 +12,43 @@
             "token": "/v2/oauth2/token",
             "refresh": "/v2/oauth2/token",
             "get": {
-                "keys": [],
-                "url": "/v3/... (get data)"
+                "method": "GET",
+                "body": {
+
+                },
+                "cookies": {},
+                "params":{
+                    "startDate": "{:params.start.year}-{:params.start.month}-{:params.start.day}T{:params.start.hour}:{:minute}:{:second}",
+                    "endDate": "{:params.end.year}-{:params.end.month}-{:params.end.day}T{:params.end.hour}:{:params.end.minute}:{:params.end.second}"
+                },
+                "url": "/v3/users/self/egvs",
+                "headers": {
+                    "Authorization":"Bearer {:access_token}"
+                }, 
+                "response": {
+                            "userId":{
+                                "type":"info",
+                                "trans":"str"
+                            },
+                            "records": {
+                                "type": "holder",
+                                "keys": {
+                                    "value":{
+                                        "type": "timestamp",
+                                        "trans": "int"
+                                    }, "trend":{
+                                        "type": "timestamp",
+                                        "trans": "str"
+                                    },
+                                    "rateUnit":{
+                                        "type": "timestamp",
+                                        "trans": "str"
+                                    }
+                                    
+                                }
+                                
+                            }
+                }
             }
 
         },

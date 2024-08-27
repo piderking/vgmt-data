@@ -6,3 +6,4 @@ def serialize(self, **data: dict) -> dict:
             data[key] = serialize(**value.to_dict())
             # default to nothing
     return data
+

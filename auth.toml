@@ -5,6 +5,8 @@ redirect_url = "/endpoints/"
 port = 3321
 debug = true
 host = "0.0.0.0"
+threaded=false
+threads=4
 
 [users]
 local = true

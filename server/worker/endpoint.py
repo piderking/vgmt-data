@@ -6,7 +6,7 @@ from ..utils.exceptions import EndpointDefinitionMissing
 from ..utils.tokens import OAUTH_TOKEN, ExpiredToken
 from ..response import VSuccessResponse, VErrorResponse
 from ..data.responses import WebResponse, TokenResponse, RefreshTokenResponse
-
+from ..data.request import WebRequest
 users: UserManager = UserManager.load()
 ENDPOINTS: dict = json.loads(
     open(CONFIG._replace(CONFIG.ENDPOINTS["path"])).read()
@@ -31,6 +31,7 @@ class Endpoint:
         self.name = name
         if ENDPOINTS.get(self.name) is None: raise EndpointDefinitionMissing("Endpoint: {} not found".format(self.name))
 
+        self.session = requests.Session()
         self.config = ENDPOINTS[self.name]
         self.clientId = self.config["client_id"]
         self.clientSecret = self.config["client_secret"]
