@@ -1,26 +1,44 @@
 from ...data.responses import WebResponse
 from ...data.request import WebRequest
 from requests import Response
+from .data import EndpointData
 
-class DataTokenResponse(WebResponse):
+"""
+Difference between DataResponse and Webresponse
+
+Similarities:
+- Accepts Data with Stepping
+
+Differences:
+- Returns Results with 
+
+"""
+
+class DataResponse(WebResponse):
     def __init__(self, 
-                 resp: dict, # 
-                 _format: set | dict ={
-                "access_token",
-                "expires_in",
-                "token_type",
-                "refresh_token"
-            }):
-        super().__init__(resp,_format=_format)
-
+                 resp: Response,  
+                 _format: set, **kwargs: dict):
+        super().__init__(resp,_format=_format, **kwargs) # Make sure "endpoint" is there
+    
+    def to_dict(self) -> dict:
+        return self.data
+    def to_data_response(self, **kwargs: dict) -> EndpointData:
+        return EndpointData(**dict(
+            kwargs | self.to_dict()
+        ))
 class DataRequest(WebRequest):
     def __init__(self, **kwargs: dict) -> None:
-        self.endpoint = kwargs.pop("endpoint")
-        self.endpoints = kwargs.pop("endpoints").get(kwargs.pop("name")) # token, auth, get, etc...
-        self.method = self.endpoints.get("method")
-        
-        self.params = self.endpoints.get("params")
-        self.url = kwargs.pop("base_url") + self.endpoint.get("url")
-        self.headers = self.endpoints.get("headers") # format
-        self.body = self.endpoints.get("params") # format
+        super().__init__(**kwargs)
+        ...
     
+    def _request(self, **kwargs) -> WebResponse:
+        return super()._request(**dict(
+            kwargs | {
+                "request":{
+                    
+                }, 
+                "response":{
+                    
+                }
+            }
+        ))

@@ -1,6 +1,25 @@
-class Seriable():
-    val = "Value"
-    def __format__(self, format_spec: str) -> str:
-        return self.__getattribute__(format_spec)
+class him():
+    def __init__(self) -> None:
+        print("him")
+        
+class zee():
+    def __init__(self) -> None:
+        print("zee")
     
-v = Seriable()
+    def say_helo(self) -> None:
+        print("hello")
+class sdsd(zee, him):
+    def __init__(self) -> None:
+        
+        zee.say_helo(self)
+        
+        
+        
+        
+        print("sdsd")
+        
+        
+def test(arg, **kwargs):
+    print(arg, kwargs)
+
+test(arg=1 )

@@ -18,7 +18,7 @@ web_config = "<config_path>/web.json"
 path = "<config_path>/endpoints.json"
 
 [data]
-file_structure = "<data_path>/{uid}/{endpoint}/{day}.csv"
+file_structure = "<data_path>/{uid}/{day}.csv"
 
 [paths]
 config_path = "config"
