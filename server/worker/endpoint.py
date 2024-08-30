@@ -94,7 +94,6 @@ class Endpoint:
 
 
 
-
     
     
     # Token Section
@@ -110,8 +109,9 @@ class Endpoint:
         "client_secret": self.clientSecret
         }
 
-
+        print(payload)
         n = self._post(self.endpoints["token"],payload, state=state)
+        
         self._tokens.append(n.to_token())
         
         return n
@@ -121,13 +121,15 @@ class Endpoint:
     # Token Verification Logic
     def _refresh_token(self, token: OAUTH_TOKEN) -> OAUTH_TOKEN:
         payload = {
-            "access_token": token.access_token,
-            "expires_in": 7200,
-            "token_type": "Bearer",
-            "refresh_token":token.refresh_token,
+        "grant_type": "refresh_token",
+        "refresh_token": token.refresh_token,
+        "client_id": self.clientId,
+        "client_secret": self.clientSecret
         }
 
-        
+
+        print(payload)
+
         return self._post(self.endpoints["refresh"], payload, token=token).to_token()
     
     def _verify_token(self, token:OAUTH_TOKEN) -> OAUTH_TOKEN:
@@ -141,7 +143,8 @@ class Endpoint:
             OAUTH_TOKEN: Verified OAuth Token
         """
         try:
-            logger.info("Trying to get TOKEN::Success={}".format(token.access_token is not None))
+            
+            logger.info("Trying to get TOKEN::={}::{}".format(str(token.isExpired()), token.access_token is not None))
         except ExpiredToken:
             logger.warning("Token Expired...Refreshing")
             return self._refresh_token(token)
@@ -215,7 +218,9 @@ class EndpointManager:
         try:
             return self.clients[name]
         except KeyError as e:
-            raise KeyError(*e.args)
+            logger.error("{} doesn't exsist".format(name))
+            print(self.clients.keys())
+            raise KeyError("{} doesn't exsist".format(name))
     def add_client(self, client: Endpoint) -> None:
         self.clients[client.name] = client
 

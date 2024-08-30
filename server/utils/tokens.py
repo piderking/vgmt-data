@@ -9,8 +9,9 @@ class OAUTH_TOKEN:
     def __init__(self, **data: dict):
         self.data = data 
         self.EXPIRED = False
-        self.create_time = time()
+        self.create_time = data.get("create_time") or time()
         self.expires_at = self.expires_in * 60 + time() - prexpiration # take of the extra time
+    
     def __getattr__(self, name: str) -> Any:
         print("Trying to get: {}".format(name))
         d = self.data.get(name.replace(" ", "_").strip().lower())
@@ -28,9 +29,9 @@ class OAUTH_TOKEN:
         return self.EXPIRED
     def _refresh(self, refresh_data: dict):
         self.create_time = time()
-        for (key, data) in refresh_data:
-            self.data[key] = data
-        self.isExpired()
+        for key in refresh_data.keys():
+            self.data[key] = refresh_data[key]
+        self.isExpired()# <-- todo
         self.expires_at = self.expires_in * 60 + time() - prexpiration # take of the extra time
 
         return self

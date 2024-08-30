@@ -22,7 +22,7 @@ class WebResponse(object):
         _resp = self._handle_response(resp) 
         
         if type(_resp) is tuple:
-            logger.warn("{}::Loaded wrongly from {} >> keep reading for more information ".format(self.__qualname__, resp.url))
+            logger.warn("{}::Loaded wrongly from {} >> keep reading for more information. {} ".format(str(self), resp.url, _resp))
             raise WebRequestError("WebResponse had issues...request failed code:{}, Response: {}".format(resp.status_code, self.data()))
         elif type(_resp) is dict:
             self.data: dict = dict( _resp | kwargs ) # add extra data into 
@@ -47,7 +47,7 @@ class WebResponse(object):
             str | int | dict:  feild at key $name
         """
         try:
-            return self.step(self.data, name.split("."))
+            return self.step(super().__getattribute__("data"), name.split("."))
         except KeyError as e: 
             raise KeyError(*e.args)
     
@@ -57,8 +57,12 @@ class WebResponse(object):
             logger.info("Final Key: {}, Return remaining val {}")    
             return val[keys[0]] 
 
-        if type(list) is dict:
-            return WebResponse.step(val[keys.pop(0)], keys) 
+        elif type(val) is dict:
+            print(len(keys))
+            key = keys.pop(0)
+            print(len(keys))
+
+            return WebResponse.step(val[key], keys) 
         return val # defaulkts
         
     def _check_format(self) -> bool:
@@ -87,7 +91,7 @@ class WebResponse(object):
                 return resp.json()
             else:
                 return VWarnResponse({
-                    "message": "Session invalid with {}, refresh... If not during debugging contact".format(resp.text),
+                    "message": "Session invalid with {}, refresh... If not during debugging contact, code: {}".format(resp.text, resp.status_code),
                     "recieved_code": resp.status_code,
                     "recieved_text": resp.text
                 }, 500)

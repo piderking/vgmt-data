@@ -7,7 +7,8 @@ import json
 from ..utils.tokens import OAUTH_TOKEN
 import time
 
-needs_refresh: list[dict] = [] # TODO make runner class, run these refreshes
+needs_refresh: list[str, str] = [] # TODO make runner class, run these refreshes
+
 class UserManager(Saveable):
     def __init__(self, users: dict = {}) -> None:
         """User Manager, both for Storage Buckets and for Local Saving
@@ -22,13 +23,12 @@ class UserManager(Saveable):
                     if u.expires_at > time.time():
                         needs_refresh.append(
                             {
-                                uid, pname
+                                "uid":uid, "endpoint":pname
                             }
                         )
                     users[uid]["providers"][pname] =  u # Set the token to the creation
                     
 
-        
         # Is Web
         self._local = bool(CONFIG.USERS["local"])
         
@@ -81,9 +81,8 @@ class UserManager(Saveable):
             ...
     
   
-    def get(self, uid: str, provider: str | None = None, autopopulate: bool = False) -> dict | None:
+    def get(self, uid: str, provider: str | None = None, autopopulate: bool = False) -> dict | OAUTH_TOKEN | None:
         if self.isLocal():
-            print("Where's user")
             if provider is not None:
                 if self.get(uid) is not None:
                     return self.users[uid]["providers"].get(provider)

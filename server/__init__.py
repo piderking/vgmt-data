@@ -5,7 +5,9 @@ import logging, colorlog
 import sys
 from .response import VSuccessResponse, VErrorResponse
 from .utils.saving import Saveable
-from .worker.endpoint import EndpointManager, users
+from .worker.endpoint import Endpoint, EndpointManager, users
+
+
 app = Flask(__name__)
 holder = EndpointManager()
 
@@ -115,6 +117,26 @@ def transform(uid):
     return VErrorResponse({
         "message": "Try again, no state user was found for the given state and user".format(endpoint,),
         "try-again":"/users/{}/claim?state={}&endpoint={}".format(uid, state, endpoint),
+        
+    }, 404)
+    
+@app.route("/users/<uid>/refresh/<state>/", methods=["GET"])
+def refresh_users_tokens(uid, state):
+    uid = request.args.get("uid")
+    state = request.args.get("state")
+    
+    if state is None or uid is None: 
+        return VErrorResponse({
+            "message": "Endpoint: {} or State: {} not found".format(uid, state)
+        }, 404)
+
+    client:Endpoint =  holder.__getattr__(uid)
+
+    if client._refresh_token(users.get()) is not None:
+        return redirect("/users/{}".format(uid)) # TODO Add redirect URL
+    return VErrorResponse({
+        "message": "Try again, no state user was found for the given state and user".format(uid,),
+        "try-again":"/users/{}/claim?state={}&endpoint={}".format(uid, state, uid),
         
     }, 404)
 

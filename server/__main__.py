@@ -1,12 +1,17 @@
-from . import app, logger, users
+from . import app, logger, users, holder
 from .env import DEBUG, HOST, PORT, TO_STDOUT
 import os, sys
 from .utils.saving import Saveable
-
+from .worker.user import needs_refresh # TODO Replace with refresh background task
 
 logger.info("Server Started")
 if __name__ == "__main__":
-
+   
+   for k in needs_refresh:
+      # Get the endpoint amd then get the token 
+      #print(users.get(k.get("uid"), k.get("endpoint")))
+      pass
+      holder.__getattr__(k.get("endpoint"))._refresh_token(users.get(k.get("uid"), k.get("endpoint")))
    try:
       app.run(
          debug=DEBUG,
