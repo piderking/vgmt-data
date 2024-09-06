@@ -2,6 +2,7 @@ from typing import Any
 import requests
 from .responses import WebResponse
 import json
+from ..utils.exceptions import UndefinedEndpoint
 from ..env import CONFIG, logger
 ENDPOINTS: dict = json.loads(
     open(CONFIG._replace(CONFIG.ENDPOINTS["path"])).read()
@@ -13,33 +14,46 @@ class WebRequest(object):
         Arguements:
         sessions: (Request.session() or None) Reuse a session
         endpoint: (str) Endpoint name
-        """
+    """
         # can pass a session object through "session"=Requests.session
         self.session = kwargs.pop("session") if kwargs.get("session") is not None else requests.session() 
         self.endpoint = kwargs.pop("endpoint")
 
         self.data = ENDPOINTS.get(self.endpoint)
+        if self.data is None: 
+            logger.warn("Endpoint not defined, {}".format(self.endpoint))
+            raise UndefinedEndpoint(self.endpoint)
         
         # definitions not required but helpful
-        self.endpoints = self.data.get(kwargs.pop("name")) # token, auth, get, etc...
+        self.endpoints = self.data.get("endpoints") # token, auth, get, etc...
+        
+        self.path = self.endpoints.get(kwargs["path"])
         
         # All required to be here
-        self.method = self.endpoints.get("method")
-        self.params = self.endpoints.get("params")
-        self.url = self.base_url + self.endpoints.get("url")
-        self.headers = self.endpoints.get("headers") # format
-        self.cookies = self.endpoints.get("cookies") # format
-        self.body = self.endpoints.get("params") # format
-        self.response = self.endpoints.get("params") # format
-        
+        self.method = self.path.get("method")
+        self.params = self.path.get("params")
+        self.url =  self.path.get("url")
+        self.headers = self.path.get("headers") # format
+        self.cookies = self.path.get("cookies") # format
+        self.body = self.path.get("params") # format
+        self.response = self.path.get("response") # format    
+        self.request = self.path.get("request") # format    
+
        
     @classmethod
-    def from_endpoint(cls, endpoint: ...):
+    def from_endpoint(cls, endpoint: ..., **kwargs):
+        """
+        Endpoint: endpoint to generate from
+        
+        kwargs:
+        sessions: if want to generate sessions
+        endpoint: endpoint name to pull data from
+        """
         return cls(
             **dict({
                 "endpoint":endpoint.name,
                 "session":endpoint.session            
-            } | endpoint.config)
+            } | kwargs)
         )
     def __fmt__(self, req: str) -> str:
         """Format wtih string with internal variables
@@ -72,7 +86,7 @@ class WebRequest(object):
             WebResponse: response in correct format
         """
         return self._request(**kwargs)
-    def _request(self, **kwargs) -> WebResponse:
+    def _request(self, mode:str="sandbox", **kwargs) -> WebResponse:
         """Make the request from the provided request session
         
         Arguements:
@@ -82,11 +96,13 @@ class WebRequest(object):
         Returns:
             WebResponse: response in correct format
         """
+        self.params = kwargs
         # TODO Certifications / Proxies Implement Here
         return WebResponse(self.session.send(requests.Request(**dict({
             "method": self.method,
-            "url": self.url,
-            "headers": self.__fmt__(self.headers),
+            "url": self.urls[mode] + self.url,
+            "headers": self.__fmt__(self.headers), # TODO Transformer into a step formatter
+            "params":self.__fmt__(self.params), # TODO Format
             "data": self.__fmt__(self.body),
             "cookies": self.__fmt__(self.cookies)
         } | kwargs["request"])).prepare()),
@@ -111,7 +127,7 @@ class WebRequest(object):
         Returns:
             _type_: _description_
         """
-        return WebResponse.step(self.data, name.split(".") if name is str else name)
+        return WebResponse.step(self.data, name)
 
 def getKeys(item: dict,) -> list[str]:
     """Turn dictionary into stepable list of keys

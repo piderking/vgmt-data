@@ -7,10 +7,18 @@ from ..utils.tokens import OAUTH_TOKEN, ExpiredToken
 from ..response import VSuccessResponse, VErrorResponse
 from ..data.responses import WebResponse, TokenResponse, RefreshTokenResponse
 from ..data.request import WebRequest
-users: UserManager = UserManager.load()
+from ..utils.actions import ActionLogger, log
+from ..utils.actions import log
+from ..vars import actions
+
+users: UserManager = UserManager.load(
+    CONFIG.USERS["file_path"]
+)
 ENDPOINTS: dict = json.loads(
     open(CONFIG._replace(CONFIG.ENDPOINTS["path"])).read()
 ) # Load files from config
+
+from ..utils.log import debug, info, warn
 class Endpoint:
     def __init__(self, name: str, tokens: list[dict | OAUTH_TOKEN] = []):
         """Endpoint utility class, utilized by EndpointManager
@@ -79,7 +87,7 @@ class Endpoint:
         else:
             return self._handle_code_response(requests.post(url, data=payload, headers=headers), code[1])
 
-    
+    @log(actions)
     def _post(self, endpoint: str, payload: dict,**kwargs: dict ) -> WebResponse | TokenResponse | RefreshTokenResponse:
         url = self.base_url +  endpoint
     
@@ -120,15 +128,13 @@ class Endpoint:
     
     # Token Verification Logic
     def _refresh_token(self, token: OAUTH_TOKEN) -> OAUTH_TOKEN:
+        debug("refreshing token", name=self.name, type="endpoint")
         payload = {
         "grant_type": "refresh_token",
         "refresh_token": token.refresh_token,
         "client_id": self.clientId,
         "client_secret": self.clientSecret
         }
-
-
-        print(payload)
 
         return self._post(self.endpoints["refresh"], payload, token=token).to_token()
     
@@ -142,11 +148,12 @@ class Endpoint:
         Returns:
             OAUTH_TOKEN: Verified OAuth Token
         """
+        debug("refreshing token", name=self.name, type="endpoint")
         try:
             
-            logger.info("Trying to get TOKEN::={}::{}".format(str(token.isExpired()), token.access_token is not None))
+            info("Trying to get TOKEN::={}::{}".format(str(token.isExpired()), token.access_token is not None), name=self.name, type="endpoint")
         except ExpiredToken:
-            logger.warning("Token Expired...Refreshing")
+            warn("Token Expired...Refreshing", name=self.name, type="endpoint")
             return self._refresh_token(token)
 
     

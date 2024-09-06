@@ -6,10 +6,14 @@ import sys
 from .response import VSuccessResponse, VErrorResponse
 from .utils.saving import Saveable
 from .worker.endpoint import Endpoint, EndpointManager, users
-
-
+from .utils.data.web import DataResponse, DataRequest
+from .utils.serialize import serialize
+from .utils.data.web import DataRequest, DataResponse, WebRequest, WebResponse
+from .vars import actions
 app = Flask(__name__)
 holder = EndpointManager()
+
+
 
 @app.route("/")
 def index():
@@ -19,6 +23,11 @@ def index():
 def docs():
     return VErrorResponse({}, 200, message="Unimplemented")
 
+@app.route("/test")
+def test():
+    d = DataRequest.from_endpoint(holder.dexcom, path="get")._request(request={}, response={})
+    print(d)
+    return "OK"
 
 @app.route("/endpoints/")
 def all_endpoints():
@@ -40,7 +49,6 @@ def endpoints(endpoint):
             "message": "Endpoint is None"
         },  401)
     client = holder.__getattr__(endpoint)
-    print(client)
     if request.args.get("code") is not None and request.args.get("state") is not None:
         return VSuccessResponse(client._fetch_token(request.args.get("code"), request.args.get("state"), request.base_url, ), 200)
     else:
@@ -84,7 +92,7 @@ def delete_user(uid):
     v =  users._remove_user(uid)
     return VSuccessResponse(v, 200) if v is not None else VErrorResponse({}, 404, "No user found with UID of {}".format(uid))
 
-@app.route("/users/<uid>", methods=["GET"])
+@app.route("/users/<uid>/", methods=["GET"])
 def view_user(uid):
     v = users.get(uid)
     return VSuccessResponse(v, 200) if v is not None else VErrorResponse({}, 404, "User of UID::{} is None".format(uid))
@@ -139,7 +147,32 @@ def refresh_users_tokens(uid, state):
         "try-again":"/users/{}/claim?state={}&endpoint={}".format(uid, state, uid),
         
     }, 404)
+    
+@app.route("/users/<uid>/<endpoint>/", methods=["GET"])
+def request_user_data(uid: str, endpoint: str):
+    """Sample Params
 
+    Args:
+        uid (str): _description_
+        endpoint (str): endpoint of data
+    
+    """
+    
+    if uid is None or endpoint is None: 
+        return VErrorResponse({
+            "message": "Endpoint: {} or State: {} not found".format(uid, state)
+        }, 404)
+
+    client:Endpoint =  holder.__getattr__(uid)
+    
+
+    if client._refresh_token(users.get()) is not None:
+        return redirect("/users/{}".format(uid)) # TODO Add redirect URL
+    return VErrorResponse({
+        "message": "Try again, no state user was found for the given state and user".format(uid,),
+        "try-again":"/users/{}/claim?state={}&endpoint={}".format(uid, state, uid),
+        
+    }, 404)
 @app.route("/users/")
 def all_current_users():
     return users.to_dict() # Get All Users
@@ -149,8 +182,14 @@ def save():
     logger.info("/save called, saving process comencing...")
 
     users.save() # TODO Fix 
-    # TODO Add ClientAPI Saving
+    actions.save()
+    # Explicit Calls must be called to `Saveable`
     # holder.save(request.args.get('filename'))
     
     logger.info("Saving Finished. Okay to exit.\n CTRL+C")
     return redirect("/")
+
+@app.route("/actions")
+def display_actions():
+    return [serialize(**act.to_display()) for act in actions.actions]
+

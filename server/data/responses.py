@@ -4,8 +4,9 @@ from ..env import logger, CONFIG
 from ..response import _VWarningResponse, VWarnResponse
 from ..utils.exceptions import UndefinedRequiredDataFeild, WebRequestError, ResponseIsHTML
 from ..utils.tokens import OAUTH_TOKEN
-
+from ..utils.log import info, debug, warn
 class WebResponse(object):
+    _type = "Web Response"
     def __init__(self, resp: Response, _format: iter, **kwargs: dict):
         """Create WebResponse
 
@@ -32,7 +33,7 @@ class WebResponse(object):
         if self._check_format(): raise UndefinedRequiredDataFeild()
         
         # Sucessful Loading
-        logger.info("Loaded from {} Sucessfully".format(self, __name__))
+        info("Loaded from {} Sucessfully ".format(self, __name__), type=self._type,)
     
     def __getattr__(self, name: str) -> any: # str | int | dict | none
         """Python Abstraction self.$name --> self.__getattr__(name)
@@ -52,11 +53,13 @@ class WebResponse(object):
             raise KeyError(*e.args)
     
     @classmethod
-    def step(_, val: dict, keys:list[str]): # i love recursive
+    def step(_, val: dict, keys:list[str] | str): # i love recursive
+        keys = keys.split(".") if type(keys) is str else keys
+        print(val)
         if len(keys) == 1:
-            logger.info("Final Key: {}, Return remaining val {}")    
+            debug("Stepped through dictionary...Final Results", type="Stepper")
             return val[keys[0]] 
-
+        
         elif type(val) is dict:
             print(len(keys))
             key = keys.pop(0)
@@ -69,7 +72,7 @@ class WebResponse(object):
                 # Check for Required Values
         for keys in self.data.keys():
             if self.step(self.data, keys.split(".")) is None:
-                logger.warn("{}::Loaded wrongly >> keep reading for more information ".format(self.__qualname__))
+                warn("Loaded wrongly >> keep reading for more information ", type=self._type,)
                 return False
         return
     def _handle_response(self, resp: Response, status_code: int | list[int]=300) -> dict | tuple[dict, int]:
@@ -116,6 +119,7 @@ class WebResponse(object):
         return cls(*args, **kwargs)
         
 class TokenResponse(WebResponse):
+    _type = "Token Response"
     """Process __mod__::Response into a OAUTH_TOKEN object
     """
     def __init__(self, 
@@ -137,6 +141,7 @@ class TokenResponse(WebResponse):
         """
         return OAUTH_TOKEN(**self.data)
 class RefreshTokenResponse(TokenResponse):
+    _type = "Refresh Token Response"
     def __init__(self, 
                  resp: Response, 
                  token: OAUTH_TOKEN, 

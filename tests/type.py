@@ -1,25 +1,16 @@
-class him():
-    def __init__(self) -> None:
-        print("him")
-        
-class zee():
-    def __init__(self) -> None:
-        print("zee")
-    
-    def say_helo(self) -> None:
-        print("hello")
-class sdsd(zee, him):
-    def __init__(self) -> None:
-        
-        zee.say_helo(self)
-        
-        
-        
-        
-        print("sdsd")
-        
-        
-def test(arg, **kwargs):
-    print(arg, kwargs)
+import json
 
-test(arg=1 )
+actions = []
+
+
+@log()    
+def add(i: int, x: int | str, **kwargs: dict) -> int:
+    return i+x
+
+
+add(1, 2, hello=False)
+
+print(actions)
+print(actions[0].to_dict())
+
+json.dumps(actions[0].to_dict())

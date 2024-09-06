@@ -28,6 +28,10 @@ class EndpointDefinitionMissing(Exception):
 class UndefinedRequiredDataFeild(BaseException):
     ...
 
+class UndefinedEndpoint(BaseException):
+    ...
+
+
 class WebRequestError(BaseException):
     def __init__(self, msg: str) -> None:
         logger.error("{}::Had issues decoding".format(msg))

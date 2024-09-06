@@ -31,7 +31,6 @@ class _VErrorResponse(_VResponse):
         return super().__call__(data, code, message)      
         
 def VSuccessResponse(data: dict, code: int, message: str | None = None) -> tuple[dict, int]:
-    print(type(_VSuccessResponse()(data, code=code, message=message)))
     return _VSuccessResponse()(data, code=code, message=message)
 
 def VWarnResponse(data: dict, code: int, message: str | None = None) -> tuple[dict, int]:

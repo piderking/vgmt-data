@@ -4,7 +4,7 @@ from uuid import uuid4
 from ..utils.saving import Saveable
 from ..utils.exceptions import LoadingError
 import json
-from ..utils.tokens import OAUTH_TOKEN
+from ..utils.tokens import OAUTH_TOKEN, ExpiredToken
 import time
 
 needs_refresh: list[str, str] = [] # TODO make runner class, run these refreshes
@@ -19,14 +19,20 @@ class UserManager(Saveable):
         for uid, user in users.items():
             if user.get("providers") is not None:
                 for pname, pval in user.get("providers").items():
+                    
                     u = OAUTH_TOKEN(**pval)
-                    if u.expires_at > time.time():
+                    try:
+                        u.isExpired()
+                        
+                    except ExpiredToken:
                         needs_refresh.append(
                             {
                                 "uid":uid, "endpoint":pname
                             }
                         )
-                    users[uid]["providers"][pname] =  u # Set the token to the creation
+                    finally:
+                        # default and set it
+                        users[uid]["providers"][pname] =  u # Set the token to the creation
                     
 
         # Is Web

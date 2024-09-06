@@ -1,6 +1,6 @@
 alias b := build
 alias rr := rustrun
-
+alias run := server
 host := `uname -a`
 
 build:

@@ -56,7 +56,7 @@ class Config():
         #print(dir_path, path)
 
         if not os.path.exists(dir_path):
-            print("Directory: {} doesn't exsist")
+            print("Directory: {} doesn't exsist".format(dir_path))
             os.path.makedirs(dir_path)
         return path
     
