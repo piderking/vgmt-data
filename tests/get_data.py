@@ -4,13 +4,13 @@ import requests
 
 
 
-access_token = requests.get("http://localhost:3321/users/89b20116-2895-439a-8158-b6f68853db6b/").json()["data"]["providers"]["dexcom"]["access_token"].strip()
+access_token = requests.get("http://localhost:3321/users/a863335b-0db6-49b6-98cc-1bdf8044a796/").json()["data"]["providers"]["dexcom"]["access_token"].strip()
 
-url = "https://api.dexcom.com/v3/users/self/egvs"
+url = "https://sandbox-api.dexcom.com/v3/users/self/egvs"
 
 query = {
-  "startDate": "2022-02-06T09:12:35",
-  "endDate": "2022-02-06T09:12:35"
+  "startDate": "2024-02-06T09:12:35",
+  "endDate": "2024-02-07T09:13:35"
 }
 
 headers = {"Authorization": "Bearer {}".format(access_token)}
