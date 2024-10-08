@@ -1,13 +1,14 @@
 from typing import Any
 import requests
 
+from server.utils.state import isProduction
 from server.utils.step import step
 from .responses import WebResponse
-import json
 from ..utils.exceptions import ResponseIsHTML, UndefinedEndpoint
 from ..env import CONFIG, logger
 import re
 from ..utils.log import debug, info
+import json
 ENDPOINTS: dict = json.loads(
     open(CONFIG._replace(CONFIG.ENDPOINTS["path"])).read()
 ) # Load files from config
@@ -39,7 +40,7 @@ class WebRequest(object):
         self.url =  self.path.get("url")
         self.headers = self.path.get("headers") # format
         self.cookies = self.path.get("cookies") # format
-        self.body = self.path.get("params") # format
+        self.body = self.path.get("body") 
         self.response = self.path.get("response") # format    
         self.request = self.path.get("request") # format    
 
@@ -103,7 +104,7 @@ class WebRequest(object):
             WebResponse: response in correct format
         """
         return self._request(**kwargs)
-    def _request(self, mode:str="sandbox", **kwargs) -> WebResponse:
+    def _request(self, mode:str = None, **kwargs) -> WebResponse:
         """Make the request from the provided request session
         
         Arguements:
@@ -117,18 +118,20 @@ class WebRequest(object):
         self.input = kwargs.get("request", {})
         # TODO Certifications / Proxies Implement Here
         
-        prep = {
+        
+        data =  self.__fmt__(self.body)
+        prep = dict({
             "method": self.method,
-            "url": self.urls[mode] + self.url,
+            "url": self.urls[mode or isProduction(asStr=True)] + self.url,
             "headers": self.__fmt__(self.headers), # TODO Transformer into a step formatter
             "params":self.__fmt__(self.params), # TODO Format
-            "data": self.__fmt__(self.body),
             "cookies": self.__fmt__(self.cookies)
-        }
+        } | dict({"data": data} if len(data) > 0 else {}))
         
         info("Prepared Data",prep, type="Request", name="Requester")
+        preped = self.session.send(requests.Request(**prep).prepare())
         try:
-            return WebResponse(self.session.send(requests.Request(**prep).prepare()),
+            return WebResponse(preped,
             self.to_response_format(),
             **kwargs["response"]
             )
@@ -141,7 +144,7 @@ class WebRequest(object):
         Returns:
             set: _description_
         """
-        return set(getKeys(self.response))
+        return getKeys(self.response)
     def __getattr__(self, name: str | list): # Returns dict , list , str, int , bool
         """Pull from $endpoint
         To pull from do self.endpoints[key.key.key]
