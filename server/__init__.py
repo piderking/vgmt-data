@@ -173,9 +173,7 @@ def request_user_data(uid: str, endpoint: str):
             "endpoint": endpoint,
             "path": "get",
             "access_token": users.get(uid, endpoint).access_token,
-        })
-        
-        data._request(
+        })._request(
         **{
             "request": {
                 "input": {       
@@ -183,26 +181,27 @@ def request_user_data(uid: str, endpoint: str):
                         "year": "2023",
                         "month": "12",
                         "day": "23",
-                        "hour": "5",
-                        "minute": "1",
+                        "hour": "05",
+                        "minute": "01",
                         "second": "50"
                     },
                     "end" : {
                         "year": "2023",
                         "month": "12",
                         "day": "24",
-                        "hour": "5",
-                        "minute": "1",
+                        "hour": "05",
+                        "minute": "01",
                         "second": "50"
                     }
                 }
             },
             "response": {}
         }
-        ), "SDfsdfsd"
+        )
         return VSuccessResponse({
             # fetch data here and return it
-            "sucess": True   
+            "sucess": True,
+            "data": data.to_dict()
         }, 200)
     return VErrorResponse({
         "message": "Try again, no state user was found for the given state and user".format(uid,),
