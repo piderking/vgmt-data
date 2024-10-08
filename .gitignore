@@ -9,3 +9,4 @@ __pycache__/
 *$py.class
 server/__pycache__/*.pyc
 data/user.json
+html/error/*
