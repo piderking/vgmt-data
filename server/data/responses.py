@@ -7,6 +7,8 @@ from ..response import _VWarningResponse, VWarnResponse
 from ..utils.exceptions import UndefinedRequiredDataFeild, WebRequestError, ResponseIsHTML
 from ..utils.tokens import OAUTH_TOKEN
 from ..utils.log import info, debug, warn
+from urllib.parse import urlparse
+
 class WebResponse(object):
     _type = "Web Response"
     def __init__(self, resp: Response, _format: iter, **kwargs: dict):
@@ -26,11 +28,11 @@ class WebResponse(object):
         
         if type(_resp) is tuple:
             logger.warn("{}::Loaded wrongly from {} >> keep reading for more information. {} ".format(str(self), resp.url, _resp))
-            raise WebRequestError("WebResponse had issues...request failed code:{}, Response: {}".format(resp.status_code, self.data()))
+            raise WebRequestError("WebResponse had issues...request failed code:{}, Response: {}".format(resp.status_code, resp))
         elif type(_resp) is dict:
             self.data: dict = dict( _resp | kwargs ) # add extra data into 
 
-        self.format: set = set(_format.keys()) if type(_format) is dict else set(_format) # Accept either set / dicts
+        self.format: list = list(_format.keys()) if type(_format) is dict else list(_format) # Accept either set / dicts
         
         if self._check_format(): raise UndefinedRequiredDataFeild()
         
@@ -79,10 +81,11 @@ class WebResponse(object):
         """
         try:
 
-            if resp.status_code < status_code if type(status_code) is not list else any(iter(resp.status_code == code for code in status_code)):
+            if any([resp.status_code < status_code] if type(status_code) is not list else list(resp.status_code == code for code in status_code)):
                 if bool(re.search(r"r<[^>]+>", resp.text)) or resp.text.count("<!DOCTYPE html>", 0, 15) > 0:
-                    open("/html/error/{}.html".format("AAAA", "w").write(resp.text)).close()
-
+                    file = open("./html/error/{}.html".format(urlparse(resp.url).netloc), "w+")
+                    file.write(resp.text)
+                    file.close()
                     raise ResponseIsHTML("Request at {}".format(resp.url))
                 return resp.json()
             else:
@@ -93,10 +96,10 @@ class WebResponse(object):
                 }, 500)
                 
         except Exception as e:
-            logger.exception(e())
+            logger.exception(e)
             return VWarnResponse({
                     "message": "Session invalid with {}, refresh... If not during debugging contact".format(resp.text),
-                    "error": str(e())
+                    "error": str(e)
             }, 500) # Commonly Decode Error, if HTML then ResponseIsHTML is thrown
     def to_dict(self) -> dict:
         """Return object as a dict representation
