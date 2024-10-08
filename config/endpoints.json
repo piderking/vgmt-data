@@ -23,7 +23,7 @@
                 },
                 "url": "/v3/users/self/egvs",
                 "headers": {
-                    "Authorization":"Bearer {:access_token}"
+                    "Authorization": "Bearer {:access_token}"
                 }, 
                 "response": {
                             "userId":{
@@ -35,7 +35,8 @@
                                 "keys": {
                                     "value":{
                                         "type": "timestamp",
-                                        "trans": "int"
+                                        "trans": "int",
+                                        "id": "blood_sugar"
                                     }, "trend":{
                                         "type": "timestamp",
                                         "trans": "str"
