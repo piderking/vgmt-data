@@ -1,5 +1,7 @@
 import toml, requests, json, os
 from flask import url_for, Flask, request, Response
+
+from server.utils.state import isProduction
 from ..env import logger, CONFIG
 from ..data.responses import UserManager
 from ..utils.exceptions import EndpointDefinitionMissing
@@ -43,10 +45,9 @@ class Endpoint:
         self.config = ENDPOINTS[self.name]
         self.clientId = self.config["client_id"]
         self.clientSecret = self.config["client_secret"]
-        self.sandbox = self.config["sandbox"] # Optional (Default is in auth.toml)
         self.endpoints = self.config["endpoints"]
         self.scopes = self.config["scopes"]
-        self.base_url = self.config["urls"]["sandbox"] if self.sandbox else self.config["urls"]["production"]
+        self.base_url = self.config["urls"][isProduction(asStr=True)]
         
         # Redirect URL
         self.redirect_url = CONFIG.OAUTH["redirect_url"] + self.name
@@ -65,7 +66,9 @@ class Endpoint:
         return self._tokens
     
     def set_sandbox(self, _new: bool) -> bool:
-        """Sets sandbox and base_url
+        """
+        DEPREACTED!!! 
+        Sets sandbox and base_url
 
         Args:
             _new (bool): New Val
@@ -73,6 +76,7 @@ class Endpoint:
         Returns:
             bool: value
         """
+        raise DeprecationWarning()
         self.sandbox = _new
         self.base_url = (self.config["urls"]["sandbox"] if self.sandbox else self.config["urls"]["production"])
         return _new
@@ -192,7 +196,6 @@ class Endpoint:
             "redirect_url": self.redirect_url,
             "endpoints": self.endpoints,
             "tokens": [token.to_dict() for token in self.tokens],
-            "sandbox": self.sandbox,
         }
     @staticmethod        
     def from_name(name: str):
@@ -235,7 +238,7 @@ class EndpointManager:
         """
         Not Implemented
         """
-        """ftoml.__delattr__(name)
+        """
         for item in self.clients:
             if item.name == name:
                 self.clients.remove(item)

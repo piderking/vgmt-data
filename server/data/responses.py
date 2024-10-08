@@ -1,3 +1,5 @@
+import re
+from server.utils.step import step
 from ..worker.user import UserManager
 from requests import Response
 from ..env import logger, CONFIG
@@ -48,34 +50,23 @@ class WebResponse(object):
             str | int | dict:  feild at key $name
         """
         try:
-            return self.step(super().__getattribute__("data"), name.split("."))
+            d = step(self.__getattribute__("data"), name.split("."))
+            if d is None:
+                return self.__getattribute__(name)
+            return d
         except KeyError as e: 
             raise KeyError(*e.args)
     
-    @classmethod
-    def step(_, val: dict, keys:list[str] | str): # i love recursive
-        keys = keys.split(".") if type(keys) is str else keys
-        print(val)
-        if len(keys) == 1:
-            debug("Stepped through dictionary...Final Results", type="Stepper")
-            return val[keys[0]] 
-        
-        elif type(val) is dict:
-            print(len(keys))
-            key = keys.pop(0)
-            print(len(keys))
 
-            return WebResponse.step(val[key], keys) 
-        return val # defaulkts
         
     def _check_format(self) -> bool:
                 # Check for Required Values
         for keys in self.data.keys():
-            if self.step(self.data, keys.split(".")) is None:
+            if step(self.data, keys.split(".")) is None:
                 warn("Loaded wrongly >> keep reading for more information ", type=self._type,)
                 return False
         return
-    def _handle_response(self, resp: Response, status_code: int | list[int]=300) -> dict | tuple[dict, int]:
+    def _handle_response(self, resp: Response, status_code: int | list[int]=500) -> dict | tuple[dict, int]:
         """Handle Web Request and either read data or spit errors
 
         Args:
@@ -89,7 +80,9 @@ class WebResponse(object):
         try:
 
             if resp.status_code < status_code if type(status_code) is not list else any(iter(resp.status_code == code for code in status_code)):
-                if resp.text[10:].count("<html>") > 0:
+                if bool(re.search(r"r<[^>]+>", resp.text)) or resp.text.count("<!DOCTYPE html>", 0, 15) > 0:
+                    open("/html/error/{}.html".format("AAAA", "w").write(resp.text)).close()
+
                     raise ResponseIsHTML("Request at {}".format(resp.url))
                 return resp.json()
             else:

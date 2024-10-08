@@ -13,7 +13,6 @@ class Action():
         return self.data
     
     def to_display(self):
-        print("Called")
         return {
             "args": {
                 key:{
@@ -83,8 +82,8 @@ def log(action_logger: ActionLogger):
         def decorator(function):
             def wrapper(*args, **kwargs):
                 result = function(*args, **kwargs)
-                function.__annotations__.pop("kwargs")
-                function.__annotations__.pop("return")
+                function.__annotations__.get("kwargs")
+                function.__annotations__.get("return")
                 action_logger.append(Action(args=dict(list(zip(function.__annotations__.keys(), args))), kwargs=kwargs, treturn=result, doc=function.__doc__, name=function.__name__, ))
                 return result
             return wrapper

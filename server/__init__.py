@@ -148,7 +148,7 @@ def refresh_users_tokens(uid, state):
         
     }, 404)
     
-@app.route("/users/<uid>/<endpoint>/", methods=["GET"])
+@app.route("/users/<uid>/data/<endpoint>/")
 def request_user_data(uid: str, endpoint: str):
     """Sample Params
 
@@ -163,19 +163,57 @@ def request_user_data(uid: str, endpoint: str):
             "message": "Endpoint: {} or State: {} not found".format(uid, state)
         }, 404)
 
-    client:Endpoint =  holder.__getattr__(uid)
+    client:Endpoint =  holder.__getattr__(endpoint)
     
 
-    if client._refresh_token(users.get()) is not None:
-        return redirect("/users/{}".format(uid)) # TODO Add redirect URL
+    #if client._verify_token(users.get(uid)) is None:
+    if users.get(uid, endpoint) is not None:
+        
+        data = DataRequest(**{
+            "endpoint": endpoint,
+            "path": "get",
+            "access_token": users.get(uid, endpoint).access_token,
+        })
+        
+        data._request(
+        **{
+            "request": {
+                "input": {       
+                    "start" : {
+                        "year": "2023",
+                        "month": "12",
+                        "day": "23",
+                        "hour": "5",
+                        "minute": "1",
+                        "second": "50"
+                    },
+                    "end" : {
+                        "year": "2023",
+                        "month": "12",
+                        "day": "24",
+                        "hour": "5",
+                        "minute": "1",
+                        "second": "50"
+                    }
+                }
+            },
+            "response": {}
+        }
+        ), "SDfsdfsd"
+        return VSuccessResponse({
+            # fetch data here and return it
+            "sucess": True   
+        }, 200)
     return VErrorResponse({
         "message": "Try again, no state user was found for the given state and user".format(uid,),
-        "try-again":"/users/{}/claim?state={}&endpoint={}".format(uid, state, uid),
+        "try-again":"/users/{}/claim?state={}&endpoint={}".format(uid, "STATE", uid),
         
     }, 404)
+    
 @app.route("/users/")
 def all_current_users():
     return users.to_dict() # Get All Users
+    
     
 @app.route("/save/")
 def save():
@@ -189,7 +227,7 @@ def save():
     logger.info("Saving Finished. Okay to exit.\n CTRL+C")
     return redirect("/")
 
-@app.route("/actions")
+@app.route("/actions/")
 def display_actions():
     return [serialize(**act.to_display()) for act in actions.actions]
 

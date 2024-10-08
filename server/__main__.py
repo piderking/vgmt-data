@@ -11,6 +11,7 @@ if __name__ == "__main__":
       # Get the endpoint amd then get the token 
       #print(users.get(k.get("uid"), k.get("endpoint")))
                        # default and set it
+      print("Token Needs Refresh!", k)
       users + (k.get("uid"), k.get("endpoint"), holder.__getattr__(k.get("endpoint"))._refresh_token(users.get(k.get("uid"), k.get("endpoint"))))
       
    try:

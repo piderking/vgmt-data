@@ -32,13 +32,4 @@ class DataRequest(WebRequest):
         ...
     
     def _request(self, **kwargs) -> WebResponse:
-        return super()._request(**dict(
-            kwargs | {
-                "request":{
-                    
-                }, 
-                "response":{
-                    
-                }
-            }
-    ))
+        return super()._request(**kwargs)

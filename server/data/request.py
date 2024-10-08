@@ -1,9 +1,13 @@
 from typing import Any
 import requests
+
+from server.utils.step import step
 from .responses import WebResponse
 import json
-from ..utils.exceptions import UndefinedEndpoint
+from ..utils.exceptions import ResponseIsHTML, UndefinedEndpoint
 from ..env import CONFIG, logger
+import re
+from ..utils.log import debug, info
 ENDPOINTS: dict = json.loads(
     open(CONFIG._replace(CONFIG.ENDPOINTS["path"])).read()
 ) # Load files from config
@@ -14,12 +18,12 @@ class WebRequest(object):
         Arguements:
         sessions: (Request.session() or None) Reuse a session
         endpoint: (str) Endpoint name
-    """
+    """ 
         # can pass a session object through "session"=Requests.session
         self.session = kwargs.pop("session") if kwargs.get("session") is not None else requests.session() 
         self.endpoint = kwargs.pop("endpoint")
-
-        self.data = ENDPOINTS.get(self.endpoint)
+        self.access_token = kwargs.pop("access_token")
+        self.data: dict = ENDPOINTS.get(self.endpoint)
         if self.data is None: 
             logger.warn("Endpoint not defined, {}".format(self.endpoint))
             raise UndefinedEndpoint(self.endpoint)
@@ -55,7 +59,7 @@ class WebRequest(object):
                 "session":endpoint.session            
             } | kwargs)
         )
-    def __fmt__(self, req: str) -> str:
+    def __fmt__(self, req: str | dict) -> str:
         """Format wtih string with internal variables
 
         Args:
@@ -66,14 +70,27 @@ class WebRequest(object):
         Returns:
             str: Formatted
         """
-        req = req.split(".")
-        for idx, key in enumerate(req):
-            req[idx] = key.format(*[self for _ in range(key.count("{:"))])
         
-        return ".".join(req)  
-    
-    def __format__(self, format_spec: str) -> str:
-        return str(self.__getattribute__(format_spec)) # checks, then calss __getattr__
+        if type(req) is dict:
+            for key, value in req.items():
+                req[key] = self.__fmt__(value)
+            return req
+        req = str(req)
+        srch = re.findall(r"\{\:([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\}", req)
+        
+        v = str(req)
+        
+        if srch is not None:
+            
+            for idx, key in enumerate(srch):
+                
+                v = v.replace(str("{:"+key+"}"), str(getattr(self, key)))
+                #print("Modify: ({}) -> ({})".format(key, getattr(self, key)))
+            info("Formatted: {} -> {}".format(req, v), type="Request", name="Formatter")
+            return v
+        else:
+            return req
+
     
     def __call__(self, **kwargs) -> WebResponse:
         """Make the request from the provided request session
@@ -96,19 +113,27 @@ class WebRequest(object):
         Returns:
             WebResponse: response in correct format
         """
-        self.params = kwargs
+        # self.params = kwargs # Messing UP
+        self.input = kwargs.get("request", {})
         # TODO Certifications / Proxies Implement Here
-        return WebResponse(self.session.send(requests.Request(**dict({
+        
+        prep = {
             "method": self.method,
             "url": self.urls[mode] + self.url,
             "headers": self.__fmt__(self.headers), # TODO Transformer into a step formatter
             "params":self.__fmt__(self.params), # TODO Format
             "data": self.__fmt__(self.body),
             "cookies": self.__fmt__(self.cookies)
-        } | kwargs["request"])).prepare()),
-        self.to_response_format(),
-        **kwargs["response"]
-        )
+        }
+        
+        info("Prepared Data",prep, type="Request", name="Requester")
+        try:
+            return WebResponse(self.session.send(requests.Request(**prep).prepare()),
+            self.to_response_format(),
+            **kwargs["response"]
+            )
+        except ResponseIsHTML:
+            raise ValueError("Got HTML instead of a resposne")
 
     def to_response_format(self) -> set:
         """Format response dictionary into set of keys (with stepable) for response 
@@ -127,8 +152,13 @@ class WebRequest(object):
         Returns:
             _type_: _description_
         """
-        return WebResponse.step(self.data, name)
-
+        d = step(self.data, name)
+        if d is None:
+            splt = str(name).split(".")
+            if len(splt) > 1:
+                return step(self.__getattribute__(splt[0]), ".".join(splt[:]))
+            return self.__getattribute__(name) 
+        return d
 def getKeys(item: dict,) -> list[str]:
     """Turn dictionary into stepable list of keys
 
@@ -141,11 +171,11 @@ def getKeys(item: dict,) -> list[str]:
     items = []
     
     for key in item.keys():
-        if key.get("type") == "info":
+        if item[key].get("type") == "info":
             items.append(key)
-        elif key.get("type") == "timestamp":
-            items.append()
-        elif key.get("type") == "holder":
+        elif item[key].get("type") == "timestamp":
+            items.append(key)
+        elif item[key].get("type") == "holder":
             for i in getKeys(item[key]["keys"]):
                 items.append("key."+ i)
     return items
