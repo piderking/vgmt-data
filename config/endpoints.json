@@ -44,6 +44,11 @@
                                     "rateUnit":{
                                         "type": "timestamp",
                                         "trans": "str"
+                                    },
+                                    "systemTime": {
+                                        "type": "timestamp",
+                                        "trans": "str",
+                                        "id": "time"
                                     }
                                     
                                 }

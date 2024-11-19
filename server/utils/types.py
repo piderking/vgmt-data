@@ -1,0 +1,1 @@
+type VALID_CSV_STRING = str

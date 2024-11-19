@@ -3,9 +3,15 @@ from .env import DEBUG, HOST, PORT, TO_STDOUT
 import os, sys
 from .utils.saving import Saveable
 from .worker.user import needs_refresh # TODO Replace with refresh background task
-from . import users
+from . import users, cleaner, sorter
+
+
+
+
 logger.info("Server Started")
 if __name__ == "__main__":
+
+   sorter.start()
    
    for k in needs_refresh:
       # Get the endpoint amd then get the token 
@@ -25,6 +31,12 @@ if __name__ == "__main__":
       logger.info("Server Ended >> Saving Commencing")
       # TODO Saving Here
       logger.info("Saving Complete! -> Exiting")
+      
+      
    except Exception as e:
       logger.error("{} has occurred", e)
+   
+   finally:
+      sorter.join()
+      cleaner.join()
       

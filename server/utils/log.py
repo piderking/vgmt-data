@@ -9,7 +9,7 @@ def info(*args, **kwargs):
     logger.info(argformat(*args, **kwargs))
 
 def warn(*args, **kwargs):
-    logger._warn(argformat(*args, **kwargs))
+    logger.warn(argformat(*args, **kwargs))
 
 def error(*args, **kwargs):
     logger._error(argformat(*args,**kwargs))

@@ -1,9 +1,10 @@
 import toml, requests, json, os
 from flask import url_for, Flask, request, Response
 
-from server.utils.state import isProduction
+from ..utils.state import isProduction
+from ..worker.user import UserManager
 from ..env import logger, CONFIG
-from ..data.responses import UserManager
+
 from ..utils.exceptions import EndpointDefinitionMissing
 from ..utils.tokens import OAUTH_TOKEN, ExpiredToken
 from ..response import VSuccessResponse, VErrorResponse

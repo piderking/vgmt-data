@@ -1,8 +1,11 @@
 from time import time
 from abc import abstractmethod
-from ..serialize import serialize
-from ..saving import Saveable
-from ...env import CONFIG
+
+from server.utils.data import CleanedDataModel
+from ..utils.serialize import serialize
+from ..utils.saving import Saveable
+from ..env import CONFIG
+import math
 class Data():
     def __init__(self, **kwargs):
         self._data: list = kwargs.pop("data")
@@ -22,7 +25,7 @@ class EndpointData(Data): # General Endpoint Data
             data: (list) Given data, timerseries
         """
         self.endpoint: str = kwargs.pop("endpoint")
-        self.increment: int = int(kwargs.pop("increment"))
+        self.increment: int = int(kwargs.pop("increment"), 5*60) # 5 minutes
         super().__init__(**kwargs)
         
     @property
@@ -55,9 +58,11 @@ class VGMTData(Saveable, EndpointData):
                 time: (dict) {year, day}
             
         """
+        self.uid = kwargs.pop("uid")
+
         EndpointData.__init__(self, **kwargs) # Inherit sata
 
-        self._data = list(zip(*  [kwargs.keys()] + check_any([value.rip() if type(value) is EndpointData else False for _, value in kwargs.items()])))
+        self._data = list(zip(*  [kwargs.keys()] + any([value.rip() if type(value) is EndpointData else False for _, value in kwargs.items()])))
         
         Saveable.__init__(self, filename=kwargs.get("filename") if kwargs.get("filename") is not None else CONFIG._replace(CONFIG.data["file_structure"].replace("{uid}", kwargs["uid"]).replace("{day}", "{}-{}".format(kwargs["time"]["year"], kwargs["time"]["day"]))))
         
@@ -89,7 +94,8 @@ class VGMTData(Saveable, EndpointData):
     def from_csv(cls, **kwargs:dict):
         return cls(**kwargs)   
     
-    def __add__(self, data: EndpointData | list) -> list[list]:
+    def __add__(self, data: CleanedDataModel | EndpointData | list) -> list[list]:
+        """
         if type(data) is EndpointData:
             self._data = [self._data[idx] + [row] for idx, row in enumerate(data.data)]
         elif type(data) is VGMTData:
@@ -97,14 +103,23 @@ class VGMTData(Saveable, EndpointData):
         elif type(data) is list:
             self._data = [self._data[idx] + [row] for idx, row in enumerate(data)]
         return self.data
+        """
+        if type(data) is CleanedDataModel:
+            # TODO make increments work in half times
+            if not math.floor(int(data.time) % self.increment) == 0:
+                data.time - int(data.time) % self.increment # go to nearest increment 
+                
+            heads = list(data.data.keys())
+            items = list(zip(*data.data.values()))
+            # properly synced
+            
+            
+        return self
     def __repr__(self) -> str:
         "incr, {}, endpoints, {}".format(self.increment, ".".join(self.data[0]))
-def check_any(vals: list):
-    if all(vals):
-        return vals
-    else:
-        raise ValueError("Value is supposed to be type EndpointData")
-    
+
+
+
 
 def replace(types: list[any]) -> list[type]:
     return [test(t) for t in types]

@@ -41,3 +41,9 @@ class ResponseIsHTML(BaseException):
     def __init__(self, msg: str) -> None:
         logger.error("{} is HTML".format(msg))
         super().__init__()
+        
+class IntervalError(BaseException):
+    def __init__(self, msg: str) -> None:
+        logger.error("Supplied interval is lower than current interval")
+        super().__init__()
+        

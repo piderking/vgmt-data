@@ -3,3 +3,4 @@ toml
 requests
 colorlog
 redis
+pytest

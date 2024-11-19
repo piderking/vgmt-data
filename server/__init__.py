@@ -1,18 +1,27 @@
 from flask import Flask, request, redirect, Response
 from uuid import uuid4
+
+from .utils.time import convert_time
+
+from .data.acceptor.table import TableResponse
 from .env import *
 import logging, colorlog
 import sys
 from .response import VSuccessResponse, VErrorResponse
 from .utils.saving import Saveable
 from .worker.endpoint import Endpoint, EndpointManager, users
-from .utils.data.web import DataResponse, DataRequest
+from .data.web import DataResponse, DataRequest
 from .utils.serialize import serialize
-from .utils.data.web import DataRequest, DataResponse, WebRequest, WebResponse
+from .data.web import DataRequest, DataResponse, WebRequest, WebResponse
 from .vars import actions
+from .data.acceptor import cleaner, sorter, DataAcceptorCleaner, DataAcceptorSorter
+
+
 app = Flask(__name__)
 holder = EndpointManager()
 
+
+table = TableResponse
 
 
 @app.route("/")
@@ -148,13 +157,9 @@ def refresh_users_tokens(uid, state):
         
     }, 404)
     
-@app.route("/users/<uid>/data/<endpoint>/")
+@app.route("/users/<uid>/data/<endpoint>/", methods=["GET"])
 def request_user_data(uid: str, endpoint: str):
-    """Sample Params
-
-    Args:
-        uid (str): _description_
-        endpoint (str): endpoint of data
+    """Test Request for Dexcom
     
     """
     
@@ -168,8 +173,9 @@ def request_user_data(uid: str, endpoint: str):
 
     #if client._verify_token(users.get(uid)) is None:
     if users.get(uid, endpoint) is not None:
-        
         data = DataRequest(**{
+            "uid": uid,
+            "time": 000000,
             "endpoint": endpoint,
             "path": "get",
             "access_token": users.get(uid, endpoint).access_token,
@@ -180,8 +186,8 @@ def request_user_data(uid: str, endpoint: str):
                     "start" : {
                         "year": "2023",
                         "month": "12",
-                        "day": "23",
-                        "hour": "05",
+                        "day": "24",
+                        "hour": "04",
                         "minute": "01",
                         "second": "50"
                     },
@@ -198,6 +204,8 @@ def request_user_data(uid: str, endpoint: str):
             "response": {}
         }
         )
+        
+        DataResponse
         return VSuccessResponse({
             # fetch data here and return it
             "sucess": True,
@@ -208,7 +216,69 @@ def request_user_data(uid: str, endpoint: str):
         "try-again":"/users/{}/claim?state={}&endpoint={}".format(uid, "STATE", uid),
         
     }, 404)
+
+@app.route("/users/<uid>/data/<endpoint>/", methods=["POST"])
+def request_user_specific_data(uid: str, endpoint: str):
+    """Sample Params
+
+    Args:
+        uid (str): _description_
+        endpoint (str): endpoint of data
+        
+    {
+        input: {
+            structures of param field in "endpoints" defintion ({:[key].[field].[sub-field]})
+        }
+        time: Start time in secs from epoch from start time of data or 
+        path: Config to Use
+        
+        
+    }
     
+    """
+    req = request.json 
+    
+    if (uid is None or endpoint is None ) or not type(req) is dict: 
+        return VErrorResponse({
+            "message": "Incorrect Request Parameters: [uid:{}, endpoint:{}, request:{}]".format(uid, endpoint, str(req))
+        }, 404)
+
+    client:Endpoint =  holder.__getattr__(endpoint)
+    
+    
+    if req.get("time") is None:
+        return VErrorResponse({
+        "message": "Try again, no start time user was found for the given params: {}".format(uid, str(req)),
+        
+        }, 404)
+    #if client._verify_token(users.get(uid)) is None:
+    if users.get(uid, endpoint) is not None:
+        data = DataRequest(**{
+            "uid": uid,
+            "time": convert_time(req.get("time")),
+            "endpoint": endpoint,
+            "path": req.get("path", "get"),
+            "access_token": users.get(uid, endpoint).access_token,
+        })._request(
+        **{
+            "request": {
+                "input": req.get("input"),
+            },
+            "response": req.get("response", {})
+        }
+        )
+        
+        DataResponse
+        return VSuccessResponse({
+            # fetch data here and return it
+            "sucess": True,
+            "data": data.to_dict()
+        }, 200)
+    return VErrorResponse({
+        "message": "Try again, no state user was found for the given state and user".format(uid,),
+        "try-again":"/users/{}/claim?state={}&endpoint={}".format(uid, "STATE", uid),
+        
+    }, 404)
 @app.route("/users/")
 def all_current_users():
     return users.to_dict() # Get All Users

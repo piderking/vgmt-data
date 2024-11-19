@@ -20,6 +20,12 @@ class WebRequest(object):
         sessions: (Request.session() or None) Reuse a session
         endpoint: (str) Endpoint name
     """ 
+    
+        # uid
+        self.uid = kwargs.pop("uid", None)
+        
+        
+
         # can pass a session object through "session"=Requests.session
         self.session = kwargs.pop("session") if kwargs.get("session") is not None else requests.session() 
         self.endpoint = kwargs.pop("endpoint")
@@ -104,6 +110,20 @@ class WebRequest(object):
             WebResponse: response in correct format
         """
         return self._request(**kwargs)
+    
+    def _build(self, mode:str = None, **kwargs) -> requests.Response:
+        data =  self.__fmt__(self.body)
+        prep = dict({
+            "method": self.method,
+            "url": self.urls[mode or isProduction(asStr=True)] + self.url,
+            "headers": self.__fmt__(self.headers), # TODO Transformer into a step formatter
+            "params":self.__fmt__(self.params), # TODO Format
+            "cookies": self.__fmt__(self.cookies)
+        } | dict({"data": data} if len(data) > 0 else {}))
+        
+        info("Prepared Data",prep, type="Request", name="Requester")
+        return self.session.send(requests.Request(**prep).prepare())
+         
     def _request(self, mode:str = None, **kwargs) -> WebResponse:
         """Make the request from the provided request session
         
@@ -119,31 +139,24 @@ class WebRequest(object):
         # TODO Certifications / Proxies Implement Here
         
         
-        data =  self.__fmt__(self.body)
-        prep = dict({
-            "method": self.method,
-            "url": self.urls[mode or isProduction(asStr=True)] + self.url,
-            "headers": self.__fmt__(self.headers), # TODO Transformer into a step formatter
-            "params":self.__fmt__(self.params), # TODO Format
-            "cookies": self.__fmt__(self.cookies)
-        } | dict({"data": data} if len(data) > 0 else {}))
-        
-        info("Prepared Data",prep, type="Request", name="Requester")
-        preped = self.session.send(requests.Request(**prep).prepare())
+       
         try:
-            return WebResponse(preped,
-            self.to_response_format(),
-            **kwargs["response"]
+            return WebResponse(
+                self.uid,
+                self._build(mode=mode, **kwargs),
+                self.to_response_format(),
+                **kwargs["response"]
             )
         except ResponseIsHTML:
             raise ValueError("Got HTML instead of a resposne")
 
-    def to_response_format(self) -> set:
+    def to_response_format(self, **options) -> set:
         """Format response dictionary into set of keys (with stepable) for response 
-
+        Stepped Keys, id, type, trans
         Returns:
             set: _description_
         """
+        # TODO doing sometihg with response options
         return getKeys(self.response)
     def __getattr__(self, name: str | list): # Returns dict , list , str, int , bool
         """Pull from $endpoint
@@ -162,23 +175,21 @@ class WebRequest(object):
                 return step(self.__getattribute__(splt[0]), ".".join(splt[:]))
             return self.__getattribute__(name) 
         return d
-def getKeys(item: dict,) -> list[str]:
+def getKeys(item: dict,) -> list[tuple[str, str, str, str]]:
     """Turn dictionary into stepable list of keys
 
     Args:
         item (dict): Stepable Dictionary
 
     Returns:
-        list[str]: Stepped Keys
+        list[str]: Stepped Keys, id, type, trans
     """
     items = []
     
     for key in item.keys():
-        if item[key].get("type") == "info":
-            items.append(key)
-        elif item[key].get("type") == "timestamp":
-            items.append(key)
+        if item[key].get("type") == "info" or item[key].get("type") == "timestamp":
+            items.append((key, item[key].get("id"), item[key].get("type"), item[key].get("trans")))
         elif item[key].get("type") == "holder":
-            for i in getKeys(item[key]["keys"]):
-                items.append("key."+ i)
+            for i, isImpt, isType, isTrans in getKeys(item[key]["keys"]):
+                items.append(("{}.{}".format(key,i), isImpt, isType, isTrans))
     return items

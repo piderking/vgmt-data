@@ -1,3 +1,5 @@
+from ..data.fmt import VGMTData
+from ..utils.data import CleanedDataModel
 from ..env import logger, CONFIG
 import json, os
 from uuid import uuid4
@@ -164,10 +166,33 @@ class UserManager(Saveable):
         return self._remove_user(id)
     
     # Abstraction Layers
-    def __add__(self, data: tuple[str, str, OAUTH_TOKEN] | tuple[str]) -> dict | None:
-        if len(data) < 3:
-            return self._make_user(data[0])
-        return self._make_provider(data[0], data[1], data[2]) # use _make_provider abstraction
+    def __add__(self, data: tuple[str, str, OAUTH_TOKEN] | tuple[str] | CleanedDataModel) -> dict | None:
+        if type(data[2]) is OAUTH_TOKEN:
+            return self._make_provider(data[0], data[1], data[2]) # use _make_provider abstraction
+        elif type(data) is CleanedDataModel:
+            if self.get(data.uid):
+                dt: CleanedDataModel = data[0]
+                
+                if self._users.get(dt.uid) is None:
+                    self._users[dt.uid] = {}
+                
+                #self._users[dt.uid]["data"] = TODO MERGE DATA
+                if self._users[dt.uid].get("data") is None:
+                    self._user[dt.uid]["data"] = DataDB(
+                        uid=dt.uid,
+                    ) + data
+                    
+                self._users[dt.uid]["values"] = dict(
+                    self._users[dt]["values"] |
+                    dt.values
+                )
+                return self._users[dt]["data"]
+            return None
+        
+            
+        #        if len(data) < 3: 
+        return self._make_user(data[0]) # default this statement
+  
     def __sub__(self, uid: str | tuple[str, str]) -> dict | None:
         if type(uid) is str:
             return self._remove_user(uid)

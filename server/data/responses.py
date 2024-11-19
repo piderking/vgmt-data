@@ -1,6 +1,5 @@
 import re
 from server.utils.step import step
-from ..worker.user import UserManager
 from requests import Response
 from ..env import logger, CONFIG
 from ..response import _VWarningResponse, VWarnResponse
@@ -11,7 +10,7 @@ from urllib.parse import urlparse
 
 class WebResponse(object):
     _type = "Web Response"
-    def __init__(self, resp: Response, _format: iter, **kwargs: dict):
+    def __init__(self,  resp: Response, _format: list[tuple], **kwargs: dict):
         """Create WebResponse
 
         Args:
@@ -24,8 +23,8 @@ class WebResponse(object):
         """
         
         
-        _resp = self._handle_response(resp) 
         
+        _resp = self._handle_response(resp) 
         if type(_resp) is tuple:
             logger.warn("{}::Loaded wrongly from {} >> keep reading for more information. {} ".format(str(self), resp.url, _resp))
             raise WebRequestError("WebResponse had issues...request failed code:{}, Response: {}".format(resp.status_code, resp))
@@ -33,7 +32,8 @@ class WebResponse(object):
             self.data: dict = dict( _resp | kwargs ) # add extra data into 
 
         self.format: list = list(_format.keys()) if type(_format) is dict else list(_format) # Accept either set / dicts
-        
+        print("Format for Webresponse is ", self.format)
+
         if self._check_format(): raise UndefinedRequiredDataFeild()
         
         # Sucessful Loading
@@ -107,6 +107,7 @@ class WebResponse(object):
         Returns:
             dict: dictionary representation of the object
         """
+        print(self.format)
         return dict(self.data)
     def __html__(self) -> dict:
         return self.to_dict()
