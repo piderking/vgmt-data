@@ -7,6 +7,7 @@ from ...utils.log import info, warn
 from concurrent.futures import ThreadPoolExecutor
 import time
 from ...worker.endpoint import users
+from .datapool import DataPool
 import random
 
 
@@ -15,7 +16,7 @@ type SortedStore = dict[UID, list[SortedDataModel]]
 class DataAcceptorSorter(threading.Thread):
     max_workers: int = 2
     data_cleaner: DataAcceptorCleaner
-    
+    pool: DataPool[list[SortedDataModel]] 
     _sorted: SortedStore
     overflow: int = 3
 
@@ -43,6 +44,8 @@ class DataAcceptorSorter(threading.Thread):
         self.cut_size = data_cleaner.cut_size # sync cut_size
         self.max_workers = max_workers
         
+        self.pool = DataPool(self.data_cleaner, "_final")
+        
         
         
         threading.Thread.__init__(self)
@@ -60,22 +63,26 @@ class DataAcceptorSorter(threading.Thread):
     
     def sort(self, data: CleanedDataModel):
         #users + data
-        self.cleaned = data
+        self.sorted = data
         ...
         
     def process(self, executor: ThreadPoolExecutor, batch: list[CleanedDataModel]) -> None:
         self._final.extend(executor.map(self.sort, *[batch]))         
     
+    def execute(self, executor: ThreadPoolExecutor):
+        if len(self.data_cleaner._final) > 0:
+    
+            #taking = len(self.responses) - self.cut_size if len(self.responses) > self.cut_size else 0
+            self.process(executor, self.data_cleaner.final)
+            return True
+        else: # skip this itteration
+            return False
     def run(self):
         info("Starting Sorting Server for Datapool")
-        while self.is_alive():
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                if len(self.data_cleaner._final) > 0:
-                    
-                    #taking = len(self.responses) - self.cut_size if len(self.responses) > self.cut_size else 0
-                    self.process(executor, self.data_cleaner.final)
-                    
-                    # self.responses = self.responses[:taking]
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            while self.is_alive() and executor:
+                if self.data_cleaner.execute(executor) or self.execute(executor):
+                    ...
                 else:
                     # Isn't needed and will stop boggling the system and sleep for 1/4 of second
                     time.sleep(CONFIG.THREAD["time_out"]) # TODO add customizability to timeing in confi
@@ -83,6 +90,5 @@ class DataAcceptorSorter(threading.Thread):
         
     
     def start(self) -> None:
-        if not self.data_cleaner.is_alive():
-            self.data_cleaner.start()
+      
         return super().start()

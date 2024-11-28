@@ -10,25 +10,24 @@ import threading
 import itertools
 from ...env import CONFIG
 from ...utils.log import info
-
+from .datapool import DataPool
 from ...utils.log import info, debug, warn
 
 
 
 
-class DataAcceptorCleaner(threading.Thread):
-    responses: list[DataResponse] = [] # TODO add loading saving functionality    
+class DataAcceptorCleaner():
+    pool: DataPool[DataResponse]
+    responses: list[DataResponse] = [] # TODO add loading saving functionality  
     _final: list[CleanedDataModel] = []
     max_workers: int = 2
     cut_size: int = 3
     def __init__(self, responses: list[DataResponse], daemon: bool = True, auto_start: bool = False, max_workers: int = 2) -> None:
         self.responses = responses or self.responses
-        
-        threading.Thread.__init__(self)
+        self.pool = DataPool(self, "responses" ) # Datapool Accessory ()
         
         self.max_workers = max_workers
         self.daemon = daemon
-        if auto_start or bool(CONFIG.THREAD["auto_start"]): self.start() # s
     
     def select_important(self, data: list[tuple[str, str | None, str | None, str | None]]) -> dict: 
        # Stepped Keys, id, type, trans
@@ -97,20 +96,16 @@ class DataAcceptorCleaner(threading.Thread):
             elif len(keys) > 1:
                 return step(val[key], keys) 
         return val # defaulkts
-        
-    def run(self):
-        info("Starting Sorting Server for Datapool")
-
-        while self.is_alive():
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                if len(self.responses) > 0:
+    
+    def execute(self, executor: ThreadPoolExecutor):
+        if len(self.responses) > 0:
                     
-                    taking = len(self.responses)- self.cut_size if len(self.responses) > self.cut_size else 0
-                    self.process(executor, self.response[taking:])
+            taking = len(self.responses)- self.cut_size if len(self.responses) > self.cut_size else 0
+            self.process(executor, self.response[taking:])
                     
-                    self.responses = self.responses[:taking]
-                else:
-                    # Isn't needed and will stop boggling the system and sleep for 1/4 of second
-                    time.sleep(CONFIG.THREAD["time_out"]) # TODO add customizability to timeing in confi
-        info("Thread Killed", _type="DataAcceptor", name="Cleaner")
+            self.responses = self.responses[:taking]
+            return True
+        else: # skip this itteration
+            return False
+    
         
