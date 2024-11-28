@@ -4,7 +4,20 @@ class InvalidKwargs(BaseException):
     def __init__(self, *args: object) -> None:
         logger.error("Arguements were passed to the config function, only Kwargs")                
         super().__init__(*args)
+class EmptyParameters(BaseException):
+    def __init__(self, *args: object) -> None:
+        logger.error("All arguements were empty!")                
+        super().__init__(*args)
 
+class EmptyTimeValue(BaseException):
+    def __init__(self, *args: object) -> None:
+        logger.error("No time value passed")                
+        super().__init__(*args)
+
+class WritingReadOnlyDataPool(BaseException):
+    def __init__(self, *args: object) -> None:
+        logger.error("Writing to a read only data pool")                
+        super().__init__(*args)
 class SavingError(OSError):
     def __init__(self, *args: object) -> None:
         logger.error("Issue Saving the Object see, utils/saving.py")                

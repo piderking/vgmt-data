@@ -1,9 +1,10 @@
+import io
 from datetime import datetime
 import itertools
 import math
 from typing import Any, Literal, Self
 import os
-from ...utils.exceptions import IntervalError
+from ...utils.exceptions import EmptyParameters, IntervalError, EmptyTimeValue
 from ...utils.list import position_at, transform
 from ...utils.step import step
 from ...data.web import DataResponse
@@ -13,6 +14,7 @@ type TableDataEntry = dict[UID, AcceptableData]
 type TableData = list[TableDataEntry]
 import csv
 type Interval = int
+from ...env import CONFIG
 
 class Row():
     data: list[AcceptableData] = []
@@ -155,7 +157,7 @@ class TableResponse():
         if rows:
             sort = sorted([ position_at(rows, row_label) or 0 for row_label in rows])
             return [self.cols[place] for place in sort],  transform(itertools.filterfalse(lambda x: not all(x), [ x if i in sort else None for i, x in enumerate(zip(*sort))]))
-        
+    
         return [self._cols, self._data]
     @property
     def cols(self) -> Cols:
@@ -259,9 +261,10 @@ class TableResponse():
                 
                 
                 ...
-    def __init__(self, *args, time: int):
+    def __init__(self, *args, time: int = None):
         #data = data
-        self.time = time
+        if time is None: raise EmptyTimeValue("Table response recieved no inital time value")
+        self.time = time 
         
         for arg in args:
             self + arg
@@ -338,5 +341,24 @@ class TableResponse():
            # if a holder it'll be a list of the values in a row
         })
     
-    @classmethod
-    def from_csv(cls, path: os.PathLike = None, string: str = VALID_CSV_STRING) -> Self:
+    @staticmethod
+    def from_csv(data:  VALID_CSV_STRING ) -> Self:
+        
+        
+        csv_file = io.StringIO(data)
+        data = csv.reader( csv_file )
+
+        
+        tbl = TableResponse(time=int( data[0][-1] ))
+
+        tbl._cols = data[0][:-1]
+        
+        tbl._data = [[TableResponse.transform_any(col) for col in row] for row in data[1:]] # [data[0][:-1]] + 
+
+        return tbl
+        
+        
+    def to_csv(self: Self) -> VALID_CSV_STRING:
+        csv_string = CONFIG.DATA.get("csv_sep",",").join(self._cols + [self.time])  + "\n"
+        
+        return csv_string + "\n".join([",".join([str(col) for col in row]) for row in self._data])
