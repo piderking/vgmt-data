@@ -8,7 +8,14 @@ class EmptyParameters(BaseException):
     def __init__(self, *args: object) -> None:
         logger.error("All arguements were empty!")                
         super().__init__(*args)
-
+class FileWriteException(BaseException):
+    def __init__(self, *args: object) -> None:
+        logger.error("Exception occured when a file was attemping to be written.")                
+        super().__init__(*args)
+class FileNamingStandardError(BaseException):
+    def __init__(self, *args: object) -> None:
+        logger.error("Error reading the file standard...")                
+        super().__init__(*args)
 class EmptyTimeValue(BaseException):
     def __init__(self, *args: object) -> None:
         logger.error("No time value passed")                

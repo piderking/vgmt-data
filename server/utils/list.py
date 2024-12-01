@@ -14,3 +14,15 @@ def transform(data: list[list[Any]]) -> list[list[Any]]:
     d = list(zip(*data))
     return [[p[y] for p in d] for y in range(len(d[0]))]
     
+
+def gen[T: any](times: int, val: T = None) -> list[T]:
+    """Generate Value n times
+
+    Args:
+        times (int): Times to generate value
+        val (any, optional): Value in list. Defaults to None.
+
+    Returns:
+        int: 
+    """
+    return [val for _  in range(times)]

@@ -18,10 +18,12 @@ web_config = "<config_path>/web.json"
 path = "<config_path>/endpoints.json"
 
 [data]
-file_structure = "<data_path>/local/{uid}/{day}.csv"
+file_structure = "<data_path>/local/{}/{}.csv"
+path = "<data_path>/local/"
 local = true
 csv_sep = ","
-
+time_pattern = "%Y-%m-%dT%H:%M:%SZ"
+data_warn = true
 [actions]
 file_path = "<data_path>/actions.json"
 [paths]

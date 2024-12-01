@@ -4,9 +4,10 @@ import itertools
 import math
 from typing import Any, Literal, Self
 import os
-from ...utils.exceptions import EmptyParameters, IntervalError, EmptyTimeValue
-from ...utils.list import position_at, transform
+from ...utils.exceptions import EmptyParameters, IntervalError, EmptyTimeValue, FileNamingStandardError
+from ...utils.list import position_at, transform, gen
 from ...utils.step import step
+from ...utils.log import info
 from ...data.web import DataResponse
 from ...utils.data import CleanedDataModel, SortedDataModel, UID, AcceptableData, AcceptableDataType
 from ...utils.types import VALID_CSV_STRING
@@ -15,7 +16,7 @@ type TableData = list[TableDataEntry]
 import csv
 type Interval = int
 from ...env import CONFIG
-
+type days = int
 class Row():
     data: list[AcceptableData] = []
     labels: list[str] = []
@@ -136,6 +137,25 @@ class TableResponse():
     @classmethod
     def is_acceptable_value(cls, value: str) -> AcceptableData | bool:
         return value if value in AcceptableDataType else False
+    
+    def trim(self,) -> uRow:
+        """Cut off empty rows before and after data"""
+        ...
+    def start_at_midnight(self,):
+        t = 24 * 60 # amt of minute
+        
+         
+        passed = (self.time-(self.time % t)) / t
+        
+        # ra: Rows to Add
+        ra = (self.time - (self.time-(self.time % t))) / self.interval
+        
+        
+        
+        v = gen(len(self._cols)) # save state
+        self.data = gen(ra, v) + self.data
+        self.time = ra * self.interval
+        
         
     @property
     def values(self,) -> Values:
@@ -186,6 +206,72 @@ class TableResponse():
         return None
     def get_row(self, index: Interval) -> Row | None:
         return Row(data=self._data[index] if len(self._data) - 1 > index else None, labels=self.cols, time=self.time + index * self.interval )   
+    
+    def merge_table(self, other: Self):
+        return self + other.rows # __add__ function has the functionality todo this
+    
+    def check_sources(self, uid: str):
+        t = 24 * 60
+        
+        ra = (self.time - (self.time-(self.time % t))) / self.interval
+
+        init = ra * self.interval
+        
+        to_add = []
+        
+        # list comphrension possible just more cpu intensive
+        for td in range(ra):
+            time = datetime.strftime((init + td * t) *( 60 ), CONFIG.DATA["time_pattern"])
+            
+            filepath = CONFIG._replace(CONFIG.DATA["file_structure"]).format(uid, time)
+            
+            if os.path.exists(filepath):
+                to_add.append(filepath)
+        
+        self.add_files(to_add)
+        
+        return self
+        
+                
+                
+            
+    def add_files(self, files: list[int | str], skip_bad_files: bool = False):
+        
+        for idx, file in enumerate(files):
+                info("Adding File {}/{} -- {}".format(idx, len(files), file))
+                if CONFIG.data["local"]:
+
+                    try:
+                        time = datetime.strptime(os.path.splitext(os.path.split(file)[1])[0], CONFIG.DATA["time_pattern"]) # "%Y-%m-%dT%H:%M:%SZ"
+                    except:
+                        if skip_bad_files: raise FileNamingStandardError("Unable to create to read a time from the pattern")
+                        else: continue
+                        ...
+                            # str(CONFIG.DATA["file_structure"]).format(path_parameters["uid"], if type(path_parameters["day"]) is int else str(path_parameters["day"]) )
+                    try:
+                        time =  datetime.strftime(int(time), "%Y-%m-%dT%H:%M:%SZ")
+                    finally:
+                        ...
+                    
+
+
+                    
+                    file_path = CONFIG._replace(file)
+                    
+                    #CONFIG._valid_directory("/".join(file_path.split("/")[:-1]))
+                    
+                    if os.path.exists(file_path):
+                    
+                        #        data = csv.reader(string if not all(path_parameters.get("uid"), path_parameters.get("day")) else open(str(CONFIG.DATA["file_structure"]).format(path_parameters["uid"], datetime.strftime(int(path_parameters["day"], "%Y-%m-%dT%H:%M:%SZ")) if type(path_parameters["day"]) is int else str(path_parameters["day"]) )))
+                        f = open(file_path, "r")
+                        text = f.read();f.close()
+                        
+                        self + TableResponse.from_csv(text).rows
+                    else:
+                        if skip_bad_files: raise FileNotFoundError(file_path)
+                        else: continue
+            
+        return self
     
     def __add__(self, new: Row | Col | Rows | Cols | SortedDataModel):
         if type(new) is  SortedDataModel:
