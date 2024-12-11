@@ -211,6 +211,11 @@ class TableResponse():
         return self + other.rows # __add__ function has the functionality todo this
     
     def check_sources(self, uid: str):
+        """
+        Check if files exsist
+        
+        """
+
         t = 24 * 60
         
         ra = (self.time - (self.time-(self.time % t))) / self.interval
